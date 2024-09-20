@@ -1,0 +1,26 @@
+INSERT INTO xx()
+VALUES (),
+(),
+();
+
+INSERT INTO sport_club(name, chislo_sportsmen)
+VALUES ("Kaijo", 5),
+("Too", 5),
+("Rakuzan", 5);
+
+INSERT INTO sportsmen(name, razryad, id_sport_club)
+VALUES ("Kise", 3, 1),
+("Aomine", 3, 2),
+("Akashi", 3, 3);
+
+INSERT INTO structure(name)
+VALUES (Стадион),
+(Корт),
+(Спортивный зал),
+(Манеж);
+
+INSERT INTO structure_chars(id_structure, vmestimost, tip_pokritiya, kolvo_oborydovaniya, kolvo_tribun)
+VALUES (1, 100, NULL, NULL, NULL),
+(2, NULL, Резина, NULL, NULL),
+(3, NULL, NULL, 150, NULL),
+(4, NULL, NULL, NULL, 500);
