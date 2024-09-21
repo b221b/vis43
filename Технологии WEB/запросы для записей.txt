@@ -14,13 +14,60 @@ VALUES ("Kise", 3, 1),
 ("Akashi", 3, 3);
 
 INSERT INTO structure(name)
-VALUES (Стадион),
-(Корт),
-(Спортивный зал),
-(Манеж);
+VALUES ("Стадион"),
+("Корт"),
+("Спортивный зал"),
+("Манеж");
 
 INSERT INTO structure_chars(id_structure, vmestimost, tip_pokritiya, kolvo_oborydovaniya, kolvo_tribun)
 VALUES (1, 100, NULL, NULL, NULL),
-(2, NULL, Резина, NULL, NULL),
+(2, NULL, "Резина", NULL, NULL),
 (3, NULL, NULL, 150, NULL),
 (4, NULL, NULL, NULL, 500);
+
+INSERT INTO treners(name)
+VALUES ("Коби Брайант"),
+("Леонель Месси"),
+("Лоренцо Бернарди");
+
+INSERT INTO vid_sporta(name, id_treners)
+VALUES ("Баскетбол", 1),
+("Футбол", 2),
+("Волейбол", 3);
+
+INSERT INTO prizer(mesto, nagrada)
+VALUES (1, "Золотая медаль"),
+(2, "Серебряная медаль"),
+(3, "Бронзовая медаль");
+
+INSERT INTO sorevnovaniya(name, id_structure, id_vid_sporta, data_provedeniya, id_prizer)
+VALUES ("Зимний кубок", 4, 1, 21.09.2022, 1),
+("Весенний кубок", 2, 3, 15.07.2021, 2),
+("Летний кубок", 1, 2, 02.05.2022, 3);
+
+----------------------
+Выборка Данных
+----------------------
+TE$ST
+
+SELECT s.name AS Имя_спортсмена, sc.name AS Название_клуба, s.razryad
+FROM sportsmen AS s
+INNER JOIN sport_club AS sc ON s.id_sport_club = sc.id
+WHERE sc.id = 4;
+
+----------------------
+
+По заданию:
+
+1)
+SELECT s.name as Перечень_спортивных_сооружений, sc.vmestimost
+FROM structure as s
+INNER JOIN structure_chars AS sc ON sc.id_structure = s.id
+WHERE id_structure = 1 and sc.vmestimost > 50;
+
+2)
+SELECT s.name, s.razryad
+FROM sportsmen as s
+INNER JOIN sportsmen_vidSporta as svs ON s.id = svs.id_sportsmen
+INNER JOIN vid_sporta as vs ON svs.id_vid_sporta = vs.id
+WHERE vs.name = "Баскетбол" or s.razryad > 1;
