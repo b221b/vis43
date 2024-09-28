@@ -1,8 +1,3 @@
-INSERT INTO xx()
-VALUES (),
-(),
-();
-
 INSERT INTO sport_club(name, chislo_sportsmen)
 VALUES ("Kaijo", 5),
 ("Too", 5),
@@ -54,8 +49,11 @@ VALUES ("Организатор 1", 1, "2021-09-20"),
 
 INSERT INTO sportsmen_vidSporta(id_sportsmen, id_vid_sporta)
 VALUES (8, 1),
+(8, 2),
 (9, 1),
-(10, 1);
+(10, 1),
+(11, 1),
+(13, 1);;
 
 INSERT INTO sportsmen_sorevnovaniya(id_sportsmen, id_sorevnovaniya)
 VALUES (8, 1),
@@ -64,6 +62,7 @@ VALUES (8, 1),
 
 INSERT INTO sportsmen_treners(id_sportsmen, id_treners)
 VALUES (8, 1),
+(8, 2),
 (9, 1),
 (10, 1);
 
@@ -87,42 +86,43 @@ WHERE sc.id = 4;
 По заданию:
 
 1)
-SELECT s.name as Перечень_спортивных_сооружений, sc.vmestimost
+SELECT s.name as Перечень_спортивных_сооружений, sc.vmestimost as Вместимость
 FROM structure as s
 INNER JOIN structure_chars AS sc ON sc.id_structure = s.id
-WHERE id_structure = 1 and sc.vmestimost > 50;
+WHERE sc.id_structure = 1 and sc.vmestimost > 50;
 
 2)
 SELECT s.name, s.razryad
 FROM sportsmen as s
 INNER JOIN sportsmen_vidSporta as svs ON s.id = svs.id_sportsmen
 INNER JOIN vid_sporta as vs ON svs.id_vid_sporta = vs.id
-WHERE vs.name = "Баскетбол" or s.razryad > 1;
+WHERE vs.name = "Баскетбол" or s.razryad > 2;
 
 3)
-SELECT s.name
+SELECT s.name, t.name, s.razryad
 FROM sportsmen as s
 INNER JOIN sportsmen_treners as st ON st.id_sportsmen = s.id
 INNER JOIN treners as t ON t.id = st.id_treners
 WHERE t.name = "Коби Брайант" or s.razryad > 2;
 
 4)
-SELECT s.name
+SELECT s.name, GROUP_CONCAT(vs.name SEPARATOR ', ') AS sports
 FROM sportsmen AS s
 INNER JOIN sportsmen_vidSporta AS svs ON svs.id_sportsmen = s.id
 INNER JOIN vid_sporta AS vs ON vs.id = svs.id_vid_sporta
-GROUP BY svs.id_sportsmen
+GROUP BY s.id
 HAVING COUNT(*) > 1;
 
 5)
-SELECT s.name AS Спортсмен, t.name AS Имя_тренера
-FROM treners AS t
-INNER JOIN sportsmen_treners AS st ON st.id_treners = t.id
-INNER JOIN sportsmen AS s ON s.id = st.id_sportsmen
-WHERE s.name = 'kise';
+SELECT s.name AS 'Спортсмен', GROUP_CONCAT(t.name SEPARATOR ', ') AS 'Тренеры'
+FROM sportsmen AS s
+JOIN sportsmen_treners AS st ON s.id = st.id_sportsmen
+JOIN treners AS t ON t.id = st.id_treners
+WHERE s.name = 'Kise'
+GROUP BY s.id
 
 6)
-SELECT s.name
+SELECT s.name, o.fio, s.data_provedeniya
 FROM sorevnovaniya AS s
 INNER JOIN org_sorevnovaniya AS os ON os.id_sorevnovaniya = s.id
 INNER JOIN org AS o ON o.id = os.id_org
@@ -130,18 +130,24 @@ WHERE s.data_provedeniya BETWEEN '2021-08-20' AND '2021-10-20'
 OR o.fio = "Организатор 1";
 
 7)
-SELECT s.name
+SELECT s.name, ss.name, p.mesto, p.nagrada
 FROM prizer AS p
 INNER JOIN sportsmen_prizer AS sp ON sp.id_prizer = p.id
 INNER JOIN sportsmen AS s ON s.id = sp.id_sportsmen
-INNER JOIN sorevnovaniya AS ss ON ss.id_prizer = p.id;
+INNER JOIN sorevnovaniya AS ss ON ss.id_prizer = p.id
+WHERE ss.id = 1;
 
 8)
-SELECT s.name
+SELECT s.name, ss.name, vs.name
 FROM sorevnovaniya AS s
 INNER JOIN structure AS ss ON ss.id = s.id_structure
 INNER JOIN vid_sporta AS vs ON vs.id = s.id_vid_sporta
 WHERE ss.name = 'Корт' OR vs.name = 'Баскетбол';
+
+----------------------------
+9 Ошибка в том, что я в таблицу  sportsmen_sorevnovaniya не могу добавить дублирующую запись, 
+например у меня один и тот же спортсен не может учавствовать в нескольких соревнованиях.
+----------------------------
 
 9)
 SELECT sc.name, COUNT(*)
@@ -164,10 +170,43 @@ GROUP BY sc.name;
 |
 правильносчитает количество игроков в команде, но нету условия по датам
 
+SELECT sc.name, COUNT(DISTINCT s.id)
+FROM sport_club AS sc
+INNER JOIN sportsmen AS s ON s.id_sport_club = sc.id
+LEFT JOIN sportsmen_sorevnovaniya AS sss ON sss.id_sportsmen = s.id
+LEFT JOIN sorevnovaniya AS ss ON ss.id = sss.id_sorevnovaniya AND ss.data_provedeniya BETWEEN '2021-08-20' AND '2021-10-20'
+GROUP BY sc.name;
+|
+|
+правильно считает, но там входят и те, кто в соревах не участвовал
+----------------------------
+
 10)
-SELECT t.name
+SELECT t.name, vs.name
 FROM treners AS t
 INNER JOIN vid_sporta AS vs ON vs.id_treners = t.id
 WHERE vs.name = 'Баскетбол';
 
 11)
+SELECT s.name
+FROM sportsmen AS s
+WHERE s.id NOT IN (
+    SELECT DISTINCT ss.id_sportsmen
+    FROM sportsmen_sorevnovaniya AS ss
+    INNER JOIN sorevnovaniya AS sss ON sss.id = ss.id_sorevnovaniya
+    WHERE sss.data_provedeniya BETWEEN '2021-09-01' AND '2021-09-25'
+);
+
+12)
+SELECT o.fio, COUNT(s.id)
+FROM org AS o
+INNER JOIN org_sorevnovaniya AS os ON os.id_org = o.id
+INNER JOIN sorevnovaniya AS s ON s.id = os.id_sorevnovaniya
+WHERE s.data_provedeniya BETWEEN '2021-09-01' AND '2021-09-25'
+GROUP BY o.fio;
+
+13)
+SELECT s.name, ss.data_provedeniya
+FROM structure AS s
+INNER JOIN sorevnovaniya AS ss ON ss.id_structure = s.id
+WHERE ss.data_provedeniya BETWEEN '2021-09-01' AND '2021-09-25';
