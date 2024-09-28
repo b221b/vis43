@@ -1,13 +1,20 @@
 INSERT INTO sport_club(name, chislo_sportsmen)
-VALUES ("Kaijo", 5),
-("Too", 5),
-("Rakuzan", 5);
+VALUES ("Kaijo"),
+("Too"),
+("Rakuzan"),
+("Shutoku"),
+("Seirin"),
+("Yosen");
 
 INSERT INTO sportsmen(name, razryad, id_sport_club)
 VALUES ("Kise", 3, 1),
 ("Aomine", 3, 2),
 ("Akashi", 3, 3),
-("Nebuya", 2, 6);
+("Nebuya", 2, 6),
+("Midorima", 3, 10),
+("Kuroko", 3, 11),
+("Kagami", 3, 11),
+("Murasakibara", 3, 12);
 
 INSERT INTO structure(name)
 VALUES ("Стадион"),
@@ -24,7 +31,10 @@ VALUES (1, 100, NULL, NULL, NULL),
 INSERT INTO treners(name)
 VALUES ("Коби Брайант"),
 ("Леонель Месси"),
-("Лоренцо Бернарди");
+("Лоренцо Бернарди"),
+("Леброн Джеймс"),
+("Кайри Ирвинг"),
+("Виктор Вембаньяма");
 
 INSERT INTO vid_sporta(name, id_treners)
 VALUES ("Баскетбол", 1),
@@ -39,13 +49,26 @@ VALUES (1, "Золотая медаль"),
 INSERT INTO sorevnovaniya(name, id_structure, id_vid_sporta, data_provedeniya, id_prizer)
 VALUES ("Зимний кубок", 4, 1, 21.09.2022, 1),
 ("Весенний кубок", 2, 3, 15.07.2021, 2),
-("Летний кубок", 1, 2, 02.05.2022, 3);
+("Летний кубок", 1, 2, 02.05.2022, 3),
+("Баскетбольный турнир 1", 1, 1, '2020-03-01', 1),
+("Футбольный чемпионат 1", 2, 2, '2021-07-01', 1),
+("Волейбольный кубок 1", 3, 3, '2022-08-15', 1);
 
 INSERT INTO org(fio, count_sorevov, data)
-VALUES ("Организатор 1", 1, "2021-09-20"),
-("Организатор 2", 1, "2015-07-20"),
-("Организатор 3", 1, "2002-05-20");
+VALUES ("Организатор 1"),
+("Организатор 2"),
+("Организатор 3"),
+("Организатор 4"),
+("Организатор 5"),
+("Организатор 6");
 
+INSERT INTO org_sorevnovaniya(id_org, id_sorevnovaniya)
+VALUES (1, 1),
+(2, 2),
+(3, 3),
+(4, 14),
+(5, 15),
+(6, 16);
 
 INSERT INTO sportsmen_vidSporta(id_sportsmen, id_vid_sporta)
 VALUES (8, 1),
@@ -53,18 +76,57 @@ VALUES (8, 1),
 (9, 1),
 (10, 1),
 (11, 1),
-(13, 1);;
+(13, 1),
+(11, 3),
+(14, 1),
+(15, 1),
+(16, 1),
+(17, 1),
+(17, 2);
 
 INSERT INTO sportsmen_sorevnovaniya(id_sportsmen, id_sorevnovaniya)
 VALUES (8, 1),
 (9, 2),
-(10, 3);
+(10, 3),
+(8, 2),
+(8, 3),
+(9, 1),
+(9, 3),
+(10, 1),
+(10, 2),
+(8, 14),
+(8, 15),
+(11, 14),
+(11, 16),
+(13, 3),
+(13, 14),
+(14, 1),
+(14, 2),
+(14, 3),
+(14, 14),
+(15, 3),
+(16, 1),
+(16, 2),
+(16, 3),
+(16, 14),
+(17, 1),
+(17, 2),
+(17, 3),
+(17, 14);
 
 INSERT INTO sportsmen_treners(id_sportsmen, id_treners)
 VALUES (8, 1),
 (8, 2),
 (9, 1),
-(10, 1);
+(10, 1),
+(11, 3),
+(11, 6),
+(13, 5),
+(14, 4),
+(15, 5),
+(16, 1),
+(17, 6),
+(17, 2);
 
 INSERT INTO sportsmen_prizer(id_sportsmen, id_prizer)
 VALUES (8, 3),
