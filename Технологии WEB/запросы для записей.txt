@@ -17,16 +17,28 @@ VALUES ("Kise", 3, 1),
 ("Murasakibara", 3, 12);
 
 INSERT INTO structure(name)
-VALUES ("Стадион"),
-("Корт"),
-("Спортивный зал"),
-("Манеж");
+VALUES ("Спартак (Стадион)"),
+("Динамо (Стадион)"),
+("Сельмаш (Стадион)"),
+("Номер 1 (Корт)"),
+("Номер 2 (Корт)"),
+("Фитрон (Спортивный зал)"),
+("WGym (Спортивный зал)"),
+("Подвальная качалка (Спортивный зал)"),
+("Манеж ДГТУ (Манеж)");
 
 INSERT INTO structure_chars(id_structure, vmestimost, tip_pokritiya, kolvo_oborydovaniya, kolvo_tribun)
 VALUES (1, 100, NULL, NULL, NULL),
 (2, NULL, "Резина", NULL, NULL),
 (3, NULL, NULL, 150, NULL),
 (4, NULL, NULL, NULL, 500);
+
+INSERT INTO structure_chars(id_structure, vmestimost, tip_pokritiya, kolvo_oborydovaniya, kolvo_tribun)
+VALUES(5, NULL, "Трава", NULL, NULL),
+(6, NULL, NULL, 250, NULL),
+(7, NULL, NULL, 325, NULL),
+(8, NULL, NULL, 40, NULL),
+(9, NULL, NULL, NULL, 500);
 
 INSERT INTO treners(name)
 VALUES ("Коби Брайант"),
