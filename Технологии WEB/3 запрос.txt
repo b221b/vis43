@@ -1,0 +1,198 @@
+удали из контроллера правила валидации и добавь их в модель описанные ниже
+
+SportsmenTrenersController.php:
+```
+<?php
+
+namespace app\controllers;
+
+use Yii;
+use yii\web\Controller;
+use app\models\Sportsmen;
+use app\models\Treners;
+use yii\base\DynamicModel;
+
+class SportsmenTrenersController extends Controller
+{
+    public function actionIndex()
+    {
+        // Динамическая модель для валидации
+        $model = new DynamicModel(['trener_id', 'razryad']);
+        $model->addRule(['trener_id'], 'required', ['message' => 'Выберите тренера.']);
+        $model->addRule(['razryad'], 'integer', ['message' => 'Разряд должен быть числом.']);
+        $model->addRule(['razryad'], 'safe'); // Разряд необязателен
+
+        // Получаем всех тренеров для выпадающего списка
+        $treners = Treners::find()->select(['id', 'name'])->asArray()->all();
+        $trenerOptions = array_column($treners, 'name', 'id');
+
+        // Получаем всех спортсменов по умолчанию
+        $dataProvider = Sportsmen::find()->all();
+
+        // Обработка формы
+        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
+            $query = Sportsmen::find()
+                ->innerJoin('sportsmen_treners', 'sportsmen_treners.id_sportsmen = sportsmen.id')
+                ->leftJoin('treners', 'treners.id = sportsmen_treners.id_treners') // Добавляем соединение с таблицей тренеров
+                ->select(['sportsmen.*', 'treners.name as trener_name']) // Выбираем нужные поля
+                ->where(['sportsmen_treners.id_treners' => $model->trener_id]);
+
+            if (!empty($model->razryad)) {
+                $query->andWhere(['>=', 'razryad', $model->razryad]);
+            }
+
+            $dataProvider = $query->all();
+        }
+
+        return $this->render('index', [
+            'model' => $model,
+            'trenerOptions' => $trenerOptions,
+            'dataProvider' => $dataProvider,
+        ]);
+    }
+}
+```
+
+index.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+
+$this->title = 'Запрос тренеров для спортсменов';
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<h1><?= Html::encode($this->title) ?></h1>
+
+<div class="sportsmen-form">
+    <?php $form = ActiveForm::begin(); ?>
+
+    <?= $form->field($model, 'trener_id')->dropDownList($trenerOptions, ['prompt' => 'Выберите тренера']) ?>
+
+    <?= $form->field($model, 'razryad')->textInput(['type' => 'number', 'placeholder' => 'Необязательный разряд']) ?>
+
+    <div class="form-group">
+        <?= Html::submitButton('Получить спортсменов', ['class' => 'btn btn-primary']) ?>
+        <?= Html::a('Показать всех спортсменов', ['index'], ['class' => 'btn btn-secondary']) ?>
+    </div>
+
+    <?php ActiveForm::end(); ?>
+
+    <h2>Результаты</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Имя спортсмена</th>
+                <th>Разряд</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($dataProvider as $sportsman): ?>
+                <tr>
+                    <td><?= Html::encode($sportsman->name) ?></td>
+                    <td><?= Html::encode($sportsman->razryad) ?></td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+```
+
+для связей у меня есть модели таблиц:
+
+модель таблицы sportsmen:
+```
+<?php
+
+namespace app\models;
+
+use yii\db\ActiveRecord;
+
+class Sportsmen extends ActiveRecord
+{
+    public static function tableName()
+    {
+        return 'sportsmen';
+    }
+
+    public function getSportClub()
+    {
+        return $this->hasOne(SportClub::class, ['id' => 'id_sport_club']);
+    }
+
+    public function getSportsmenPrizers()
+    {
+        return $this->hasMany(SportsmenPrizer::class, ['id_sportsmen' => 'id']);
+    }
+
+    public function getSportsmenSorevnovaniyas()
+    {
+        return $this->hasMany(SportsmenSorevnovaniya::class, ['id_sportsmen' => 'id']);
+    }
+
+    public function getSportsmenTreners()
+    {
+        return $this->hasMany(SportsmenTreners::class, ['id_sportsmen' => 'id']);
+    }
+
+    public function getSportsmenVidSporta()
+    {
+        return $this->hasMany(SportsmenVidSporta::class, ['id_sportsmen' => 'id']);
+    }
+}
+
+```
+и модель таблицы treners:
+```
+<?php
+
+namespace app\models;
+
+use yii\db\ActiveRecord;
+
+class Treners extends ActiveRecord
+{
+    public static function tableName()
+    {
+        return 'treners';
+    }
+
+    public function getSportsmenTreners()
+    {
+        return $this->hasMany(SportsmenTreners::class, ['id_treners' => 'id']);
+    }
+
+    public function getVidSporta()
+    {
+        return $this->hasOne(VidSporta::class, ['id_treners' => 'id']);
+    }
+}
+```
+и модель таблицы которая выступает связью многие ко многим sportsmen_treners:
+```
+<?php
+
+namespace app\models;
+
+use yii\db\ActiveRecord;
+
+class SportsmenTreners extends ActiveRecord
+{
+    public static function tableName()
+    {
+        return 'sportsmen_treners';
+    }
+
+    public function getSportsmen()
+    {
+        return $this->hasOne(Sportsmen::class, ['id' => 'id_sportsmen']);
+    }
+
+    public function getTreners()
+    {
+        return $this->hasOne(Treners::class, ['id' => 'id_treners']);
+    }
+}
+```

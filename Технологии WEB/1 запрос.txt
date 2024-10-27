@@ -1,4 +1,4 @@
-отлично, теперь обьясни мне код, что и где происходит, что бы при защите лабораторной я мог ответить на вопросы по коду
+добавь кнопку для выборки всех записей
 
 StructureController.php:
 ```
@@ -20,12 +20,21 @@ class StructureController extends Controller
         $model->addRule(['structure_type'], 'required', ['message' => 'Выберите тип структуры.']);
         $model->addRule(['vmestimost', 'tip_pokritiya', 'kolvo_oborydovaniya', 'kolvo_tribun'], 'safe');
 
-        $dataProvider = null;
+        // Получаем уникальные типы структур для выпадающего списка 
+        $structureTypes = Structure::find()->select('type')->distinct()->column();
+        $tipPokritiyaOptions = StructureChars::find()->select('tip_pokritiya')->distinct()->column();
 
+        // Изначально получаем все записи
+        $dataProvider = StructureChars::find()
+            ->select(['structure.name', 'structure.type', 'structure_chars.*'])
+            ->innerJoinWith('structure')
+            ->all();
+
+        // Обработка формы
         if ($model->load(Yii::$app->request->post()) && $model->validate()) {
             // Формируем запрос в зависимости от выбранного типа структуры 
             $query = StructureChars::find()
-                ->select(['structure.name', 'structure.type', 'structure_chars.*']) // Извлекаем необходимые поля
+                ->select(['structure.name', 'structure.type', 'structure_chars.*'])
                 ->innerJoinWith('structure')
                 ->where(['structure.type' => $model->structure_type]);
 
@@ -46,18 +55,10 @@ class StructureController extends Controller
             $dataProvider = $query->all();
         }
 
-        // Получаем уникальные типы структур для выпадающего списка 
-        $structureTypes = Structure::find()->select('type')->distinct()->column();
-
-        $tipPokritiyaOptions = StructureChars::find()
-            ->select('tip_pokritiya')
-            ->distinct()
-            ->column();
-
         return $this->render('index', [
             'model' => $model,
             'structureTypes' => $structureTypes,
-            'tipPokritiyaOptions' => $tipPokritiyaOptions, // Добавляем сюда
+            'tipPokritiyaOptions' => $tipPokritiyaOptions,
             'dataProvider' => $dataProvider,
         ]);
     }

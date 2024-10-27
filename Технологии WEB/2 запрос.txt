@@ -1,0 +1,169 @@
+сделай так, что бы изначально при запуске страницы сразу была тыблица со всеми записями и только поле razryad можно было заполнить, поле для заполнения id можешь убрать. еще мне нужна кнопка что бы выбрать все записи какие есть
+
+SportsmensController.php:
+```
+<?php
+
+namespace app\controllers;
+
+use Yii;
+use yii\web\Controller;
+use app\models\Sportsmen;
+use yii\data\ActiveDataProvider;
+use yii\web\NotFoundHttpException;
+
+class SportsmensController extends Controller
+{
+    public function actionIndex()
+    {
+        $model = new Sportsmen();
+        $dataProvider = null;
+
+        // Обработка формы
+        if ($model->load(Yii::$app->request->post())) {
+            $query = Sportsmen::find()->where(['id' => $model->id]);
+
+            // Если разряд указан, добавляем условие
+            if (!empty($model->razryad)) {
+                $query->andWhere(['>=', 'razryad', $model->razryad]);
+            }
+
+            $dataProvider = new ActiveDataProvider([
+                'query' => $query,
+            ]);
+        }
+
+        return $this->render('index', [
+            'model' => $model,
+            'dataProvider' => $dataProvider,
+        ]);
+    }
+}
+```
+
+index.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+use yii\helpers\ArrayHelper;
+use app\models\Sportsmen;
+
+/* @var $this yii\web\View */
+/* @var $model app\models\Sportsmen */
+/* @var $dataProvider yii\data\ActiveDataProvider */
+
+$this->title = 'Поиск спортсменов';
+$this->params['breadcrumbs'][] = $this->title;
+
+?>
+
+<div class="sportsmen-index">
+
+    <h1><?= Html::encode($this->title) ?></h1>
+
+    <div class="sportsmen-form">
+
+        <?php $form = ActiveForm::begin(); ?>
+
+        <?= $form->field($model, 'id')->dropDownList(
+            ArrayHelper::map(Sportsmen::find()->all(), 'id', 'name'),
+            ['prompt' => 'Выберите спортсмена']
+        ) ?>
+
+        <?= $form->field($model, 'razryad')->textInput(['type' => 'number', 'placeholder' => 'Введите разряд']) ?>
+
+        <div class="form-group">
+            <?= Html::submitButton('Поиск', ['class' => 'btn btn-primary']) ?>
+        </div>
+
+        <?php ActiveForm::end(); ?>
+
+    </div>
+
+    <?php if ($dataProvider): ?>
+        <h2>Результаты поиска:</h2>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Имя</th>
+                    <th>Разряд</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($dataProvider->models as $sportsman): ?>
+                    <tr>
+                        <td><?= Html::encode($sportsman->id) ?></td>
+                        <td><?= Html::encode($sportsman->name) ?></td>
+                        <td><?= Html::encode($sportsman->razryad) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
+
+</div>
+```
+
+-------------------------
+
+теперь добавь функцию для выбора вида спорта, для этого у меня есть таблица sportsmen_vidSporta которая служит для связи многие ко многим, она соединяется в табл. sportsmen и табл. vid_sporta, вот модели этих таблиц:
+sportsmen_vidSporta:
+```
+<?php
+
+namespace app\models;
+
+use yii\db\ActiveRecord;
+
+class SportsmenVidSporta extends ActiveRecord
+{
+    public static function tableName()
+    {
+        return 'sportsmen_vidSporta';
+    }
+
+    public function getSportsmen()
+    {
+        return $this->hasOne(Sportsmen::class, ['id' => 'id_sportsmen']);
+    }
+
+    public function getVidSporta()
+    {
+        return $this->hasOne(VidSporta::class, ['id' => 'id_vid_sporta']);
+    }
+}
+```
+VidSporta.php:
+```
+<?php
+
+namespace app\models;
+
+use yii\db\ActiveRecord;
+
+class VidSporta extends ActiveRecord
+{
+    public static function tableName()
+    {
+        return 'vid_sporta';
+    }
+
+    public function getSportsmenVidSporta()
+    {
+        return $this->hasMany(SportsmenVidSporta::class, ['id_vid_sporta' => 'id']);
+    }
+
+    public function getTreners()
+    {
+        return $this->hasOne(Treners::class, ['id' => 'id_treners']);
+    }
+
+    public function getSorevnovaniyas()
+    {
+        return $this->hasMany(Sorevnovaniya::class, ['id_vid_sporta' => 'id']);
+    }
+}
+```
