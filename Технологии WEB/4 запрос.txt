@@ -1,0 +1,161 @@
+добавь кнопку "отобразить всех спортсменов",
+как тут:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+use yii\data\ActiveDataProvider;
+use app\models\Sportsmen;
+use app\models\VidSporta;
+
+$this->title = 'Запрос спортсменов';
+$this->params['breadcrumbs'][] = $this->title;
+
+?>
+
+<div class="sportsmen-index">
+
+    <h1><?= Html::encode($this->title) ?></h1>
+
+    <div class="sportsmen-form">
+
+        <?php $form = ActiveForm::begin(); ?>
+
+        <?= $form->field($model, 'razryad')->textInput(['type' => 'number', 'placeholder' => 'Введите разряд']) ?>
+
+        <?= $form->field($model, 'id_vid_sporta')->dropDownList(
+            \yii\helpers\ArrayHelper::map($vidSportaList, 'id', 'name'), // Предполагается, что в таблице vid_sporta есть поле 'name'
+            ['prompt' => 'Выберите вид спорта']
+        ) ?>
+
+        <div class="form-group">
+            <?= Html::submitButton('Поиск', ['class' => 'btn btn-primary']) ?>
+            <?= Html::a('Показать всех спортсменов', ['index'], ['class' => 'btn btn-default']) ?>
+        </div>
+
+        <?php ActiveForm::end(); ?>
+
+    </div>
+
+    <h2>Список спортсменов:</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Имя</th>
+                <th>Разряд</th>
+                <th>Вид спорта</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($dataProvider->models as $sportsman): ?>
+                <tr>
+                    <td><?= Html::encode($sportsman->name) ?></td>
+                    <td><?= Html::encode($sportsman->razryad) ?></td>
+                    <td>
+                        <?php
+                        // Получаем виды спорта для каждого спортсмена
+                        $vidSportaNames = [];
+                        foreach ($sportsman->sportsmenVidSporta as $relation) {
+                            $vidSportaNames[] = $relation->vidSporta->name; // Предполагается, что в VidSporta есть поле 'name'
+                        }
+                        echo Html::encode(implode(', ', $vidSportaNames));
+                        ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+
+</div>
+```
+
+SportsmenVidSportaController.php:
+```
+<?php
+
+namespace app\controllers;
+
+use Yii;
+use yii\web\Controller;
+use app\models\Sportsmen;
+
+class SportsmenVidSportaController extends Controller
+{
+    public function actionIndex()
+    {
+        $model = new Sportsmen();
+        $sportsmenData = []; // Изначально пустой массив для данных спортсменов
+
+        // Получаем данные спортсменов по умолчанию
+        $query = (new \yii\db\Query())
+            ->select(['s.name AS sportsman_name', 'GROUP_CONCAT(vs.name SEPARATOR ", ") AS sports', 'COUNT(svs.id_vid_sporta) AS sport_count'])
+            ->from('sportsmen s')
+            ->innerJoin('sportsmen_vidSporta svs', 'svs.id_sportsmen = s.id')
+            ->innerJoin('vid_sporta vs', 'vs.id = svs.id_vid_sporta')
+            ->groupBy('s.id')
+            ->having('COUNT(svs.id_vid_sporta) > 1');
+
+        // Обработка формы
+        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
+            $sportCount = $model->razryad;
+            $query->having('COUNT(svs.id_vid_sporta) > :sportCount', [':sportCount' => $sportCount]);
+        }
+
+        $sportsmenData = $query->all();
+
+        return $this->render('index', [
+            'model' => $model,
+            'sportsmenData' => $sportsmenData,
+        ]);
+    }
+}
+```
+
+index.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+
+$this->title = 'Список спортсменов';
+?>
+
+<h1><?= Html::encode($this->title) ?></h1>
+
+<div class="sportsmen-form">
+
+    <?php $form = ActiveForm::begin(); ?>
+
+    <?= $form->field($model, 'razryad')->textInput(['type' => 'number', 'placeholder' => 'Введите количество видов спорта']) ?>
+
+    <div class="form-group">
+        <?= Html::submitButton('Поиск', ['class' => 'btn btn-primary']) ?>
+    </div>
+
+    <?php ActiveForm::end(); ?>
+
+</div>
+
+<h2>Список спортсменов</h2>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Имя спортсмена</th>
+            <th>Виды спорта</th>
+            <th>Количество видов спорта</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php foreach ($sportsmenData as $sportsman): ?>
+            <tr>
+                <td><?= Html::encode($sportsman['sportsman_name']) ?></td>
+                <td><?= Html::encode($sportsman['sports']) ?></td>
+                <td><?= Html::encode($sportsman['sport_count']) ?></td>
+            </tr>
+        <?php endforeach; ?>
+    </tbody>
+</table>
+```
