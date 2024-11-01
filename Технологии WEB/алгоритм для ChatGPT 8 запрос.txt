@@ -1,0 +1,303 @@
+я работаю с php, с фрейворком yii2, вот мое задание:
+Создайте пользовательские формы для ввода данных для пользовательских 
+запросов.
+1. Для формирования динамических запросов используйте:
+a. Выпадающий список с возможными вариантами условий запроса.
+b. Поле для открытого ввода данных.
+c. Радиокнопки/чекбоксы.
+2. Добавьте правила валидации. Измените стандартные сообщения об ошибках.
+
+
+реализуй следующий запрос:
+```
+8. Получить перечень соревнований, проведенных в указанном спортивном 
+сооружении в целом либо по определенному виду спорта
+```
+
+мне необходимо что бы ты сделал контроллер со всеми необходимыми функциями, что бы все сразу могло работать.
+сделай так же представление в единственном файле - index.php, без лишних файлов по типу Results.php и тд.
+
+при стартовом запуске страницы сразу должны быть выведены на страницу все записи, 
+мне нужны поля - name из таблицы sorevnovaniya, поле name из structure, type из structure, 
+поле name из таблицы vid_sporta.
+мне нужны поля для дополнительной настройки выборки, 
+это поле type из structure с выпадающим списком имеющихся записей из бд,
+и поле с выпадающим списком name из vid_sporta, оба этих поля необязательны для выбора, 
+после выбора можно получить записи удовлетворяющие запросу.
+
+так же мне нужна кнопка "получить все записи", которая будет выводить на страницу все имеющиенся записи.
+
+обязательные условия - правила валидации пишем в модели ActiveRecord
+
+название контроллера пусть будет SorevnovaniyaStructureController
+
+для этого запроса у меня уже создана модель таблиц sorevnovaniya, в которой должна быть реализована валидация:
+```
+<?php
+
+namespace app\models;
+
+use yii\db\ActiveRecord;
+
+class Sorevnovaniya extends ActiveRecord
+{
+    public static function tableName()
+    {
+        return 'sorevnovaniya';
+    }
+
+    public function getOrgSorevnovaniyas()
+    {
+        return $this->hasMany(OrgSorevnovaniya::class, ['id_sorevnovaniya' => 'id']);
+    }
+
+    public function getPrizer()
+    {
+        return $this->hasOne(Prizer::class, ['id' => 'id_prizer']);
+    }
+
+    public function getStructure()
+    {
+        return $this->hasOne(Structure::class, ['id' => 'id_structure']);
+    }
+
+    public function getVidSporta()
+    {
+        return $this->hasOne(VidSporta::class, ['id' => 'id_vid_sporta']);
+    }
+
+    public function getSportsmenSorevnovaniyas()
+    {
+        return $this->hasMany(SportsmenSorevnovaniya::class, ['id_sorevnovaniya' => 'id']);
+    }
+}
+```
+и модель таблицы structure:
+```
+<?php
+
+namespace app\models;
+
+use yii\db\ActiveRecord;
+
+class Structure extends ActiveRecord
+{
+    public static function tableName()
+    {
+        return 'structure';
+    }
+
+    public function getSorevnovaniyas()
+    {
+        return $this->hasMany(Sorevnovaniya::class, ['id_structure' => 'id']);
+    }
+
+    public function getStructureChars()
+    {
+        return $this->hasMany(StructureChars::class, ['id_structure' => 'id']);
+    }
+
+    // Новый метод для получения списка структур
+    public static function getList()
+    {
+        return self::find()->select(['name', 'id'])->indexBy('id')->column();
+    }
+}
+```
+и модель таблицы vid_sporta:
+```
+<?php
+
+namespace app\models;
+
+use yii\db\ActiveRecord;
+
+class VidSporta extends ActiveRecord
+{
+    public static function tableName()
+    {
+        return 'vid_sporta';
+    }
+
+    public function getSportsmenVidSporta()
+    {
+        return $this->hasMany(SportsmenVidSporta::class, ['id_vid_sporta' => 'id']);
+    }
+
+    public function getTreners()
+    {
+        return $this->hasOne(Treners::class, ['id' => 'id_treners']);
+    }
+
+    public function getSorevnovaniyas()
+    {
+        return $this->hasMany(Sorevnovaniya::class, ['id_vid_sporta' => 'id']);
+    }
+}
+```
+
+вот моя бд:
+```
+-- База данных: sportOrg
+
+-- Структура таблицы org
+CREATE TABLE `org` (
+  `id` int NOT NULL,
+  `fio` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы org_sorevnovaniya
+CREATE TABLE `org_sorevnovaniya` (
+  `id` int NOT NULL,
+  `id_org` int NOT NULL,
+  `id_sorevnovaniya` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы prizer
+CREATE TABLE `prizer` (
+  `id` int NOT NULL,
+  `mesto` int NOT NULL,
+  `nagrada` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sorevnovaniya
+CREATE TABLE `sorevnovaniya` (
+  `id` int NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `id_structure` int NOT NULL,
+  `id_vid_sporta` int NOT NULL,
+  `data_provedeniya` date NOT NULL,
+  `id_prizer` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sportsmen
+CREATE TABLE `sportsmen` (
+  `id` int NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `razryad` int NOT NULL,
+  `id_sport_club` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы `sportsmen_prizer`
+
+CREATE TABLE `sportsmen_prizer` (
+  `id` int NOT NULL,
+  `id_sportsmen` int NOT NULL,
+  `id_prizer` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sportsmen_sorevnovaniya
+CREATE TABLE `sportsmen_sorevnovaniya` (
+  `id` int NOT NULL,
+  `id_sportsmen` int NOT NULL,
+  `id_sorevnovaniya` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sportsmen_treners
+CREATE TABLE `sportsmen_treners` (
+  `id` int NOT NULL,
+  `id_sportsmen` int NOT NULL,
+  `id_treners` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sportsmen_vidSporta
+CREATE TABLE `sportsmen_vidSporta` (
+  `id` int NOT NULL,
+  `id_sportsmen` int NOT NULL,
+  `id_vid_sporta` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sport_club
+CREATE TABLE `sport_club` (
+  `id` int NOT NULL,
+  `name` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы structure
+CREATE TABLE `structure` (
+  `id` int NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы structure_chars
+CREATE TABLE `structure_chars` (
+  `id` int NOT NULL,
+  `id_structure` int NOT NULL,
+  `vmestimost` int DEFAULT NULL,
+  `tip_pokritiya` varchar(255) DEFAULT NULL,
+  `kolvo_oborydovaniya` int DEFAULT NULL,
+  `kolvo_tribun` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы treners
+CREATE TABLE `treners` (
+  `id` int NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы vid_sporta
+CREATE TABLE `vid_sporta` (
+  `id` int NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `id_treners` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Связи
+
+-- Ограничения внешнего ключа сохраненных таблиц
+
+-- Ограничения внешнего ключа таблицы `org_sorevnovaniya`
+ALTER TABLE `org_sorevnovaniya`
+  ADD CONSTRAINT `org_sorevnovaniya_ibfk_1` FOREIGN KEY (`id_org`) REFERENCES `org` (`id`),
+  ADD CONSTRAINT `org_sorevnovaniya_ibfk_2` FOREIGN KEY (`id_sorevnovaniya`) REFERENCES `sorevnovaniya` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sorevnovaniya`
+ALTER TABLE `sorevnovaniya`
+  ADD CONSTRAINT `sorevnovaniya_ibfk_1` FOREIGN KEY (`id_structure`) REFERENCES `structure` (`id`),
+  ADD CONSTRAINT `sorevnovaniya_ibfk_2` FOREIGN KEY (`id_vid_sporta`) REFERENCES `vid_sporta` (`id`),
+  ADD CONSTRAINT `sorevnovaniya_ibfk_4` FOREIGN KEY (`id_prizer`) REFERENCES `prizer` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sportsmen`
+ALTER TABLE `sportsmen`
+  ADD CONSTRAINT `sportsmen_ibfk_1` FOREIGN KEY (`id_sport_club`) REFERENCES `sport_club` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sportsmen_prizer`
+ALTER TABLE `sportsmen_prizer`
+  ADD CONSTRAINT `sportsmen_prizer_ibfk_1` FOREIGN KEY (`id_sportsmen`) REFERENCES `sportsmen` (`id`),
+  ADD CONSTRAINT `sportsmen_prizer_ibfk_2` FOREIGN KEY (`id_prizer`) REFERENCES `prizer` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sportsmen_sorevnovaniya`
+ALTER TABLE `sportsmen_sorevnovaniya`
+  ADD CONSTRAINT `sportsmen_sorevnovaniya_ibfk_2` FOREIGN KEY (`id_sportsmen`) REFERENCES `sportsmen` (`id`),
+  ADD CONSTRAINT `sportsmen_sorevnovaniya_ibfk_3` FOREIGN KEY (`id_sorevnovaniya`) REFERENCES `sorevnovaniya` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sportsmen_treners`
+ALTER TABLE `sportsmen_treners`
+  ADD CONSTRAINT `sportsmen_treners_ibfk_1` FOREIGN KEY (`id_sportsmen`) REFERENCES `sportsmen` (`id`),
+  ADD CONSTRAINT `sportsmen_treners_ibfk_2` FOREIGN KEY (`id_treners`) REFERENCES `treners` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sportsmen_vidSporta`
+ALTER TABLE `sportsmen_vidSporta`
+  ADD CONSTRAINT `sportsmen_vidsporta_ibfk_1` FOREIGN KEY (`id_sportsmen`) REFERENCES `sportsmen` (`id`),
+  ADD CONSTRAINT `sportsmen_vidsporta_ibfk_2` FOREIGN KEY (`id_vid_sporta`) REFERENCES `vid_sporta` (`id`);
+
+-- Ограничения внешнего ключа таблицы `structure_chars`
+ALTER TABLE `structure_chars`
+  ADD CONSTRAINT `structure_chars_ibfk_1` FOREIGN KEY (`id_structure`) REFERENCES `structure` (`id`);
+
+-- Ограничения внешнего ключа таблицы `vid_sporta`
+ALTER TABLE `vid_sporta`
+  ADD CONSTRAINT `vid_sporta_ibfk_1` FOREIGN KEY (`id_treners`) REFERENCES `treners` (`id`);
+COMMIT;
+```
+
+вот запрос на языке sql:
+```
+SELECT s.name, ss.name, vs.name
+FROM sorevnovaniya AS s
+INNER JOIN structure AS ss ON ss.id = s.id_structure
+INNER JOIN vid_sporta AS vs ON vs.id = s.id_vid_sporta
+WHERE ss.name = 'Корт' OR vs.name = 'Баскетбол';
+```
+только тут запрос статический, а мне нужен динамический, 
+что бы пользователь сам мог выбирать

@@ -1,0 +1,165 @@
+сделай так, что бы правила валидации полностью находились в модели sorevnovaniya
+
+sorevnovaniya.php:
+```
+<?php
+
+namespace app\models;
+
+use yii\db\ActiveRecord;
+use yii\base\Model;
+
+class Sorevnovaniya extends ActiveRecord
+{
+    public static function tableName()
+    {
+        return 'sorevnovaniya';
+    }
+
+    public function getOrgSorevnovaniyas()
+    {
+        return $this->hasMany(OrgSorevnovaniya::class, ['id_sorevnovaniya' => 'id']);
+    }
+
+    public function getPrizer()
+    {
+        return $this->hasOne(Prizer::class, ['id' => 'id_prizer']);
+    }
+
+    public function getStructure()
+    {
+        return $this->hasOne(Structure::class, ['id' => 'id_structure']);
+    }
+
+    public function getVidSporta()
+    {
+        return $this->hasOne(VidSporta::class, ['id' => 'id_vid_sporta']);
+    }
+
+    public function getSportsmenSorevnovaniyas()
+    {
+        return $this->hasMany(SportsmenSorevnovaniya::class, ['id_sorevnovaniya' => 'id']);
+    }
+
+    // Правила валидации
+    public function rules()
+    {
+        return [
+            [['id_structure', 'id_vid_sporta'], 'integer'],
+            [['id_structure'], 'exist', 'skipOnError' => true, 'targetClass' => Structure::class, 'targetAttribute' => ['id_structure' => 'id']],
+            [['id_vid_sporta'], 'exist', 'skipOnError' => true, 'targetClass' => VidSporta::class, 'targetAttribute' => ['id_vid_sporta' => 'id']],
+        ];
+    }
+
+    public function attributeLabels()
+    {
+        return [
+            'id_structure' => 'Структура',
+            'id_vid_sporta' => 'Вид спорта',
+        ];
+    }
+}
+```
+
+SorevnovaniyaStructureController.php:
+```
+<?php
+
+namespace app\controllers;
+
+use Yii;
+use app\models\Sorevnovaniya;
+use app\models\Structure;
+use app\models\VidSporta;
+use yii\web\Controller;
+use yii\web\NotFoundHttpException;
+
+class SorevnovaniyaStructureController extends Controller
+{
+    public function actionIndex()
+    {
+        $structures = Structure::getList();
+        $vidSportas = VidSporta::find()->select(['name', 'id'])->indexBy('id')->column();
+
+        $model = new \yii\base\DynamicModel(['id_structure', 'id_vid_sporta']);
+        $model->addRule(['id_structure', 'id_vid_sporta'], 'integer')
+            ->addRule(['id_structure', 'id_vid_sporta'], 'default', ['value' => null]);
+
+        $query = Sorevnovaniya::find()
+            ->joinWith(['structure', 'vidSporta']);
+
+        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
+            if ($model->id_structure) {
+                $query->andWhere(['sorevnovaniya.id_structure' => $model->id_structure]);
+            }
+            if ($model->id_vid_sporta) {
+                $query->andWhere(['sorevnovaniya.id_vid_sporta' => $model->id_vid_sporta]);
+            }
+        }
+
+        $sorevnovaniya = $query->all();
+
+        return $this->render('index', [
+            'sorevnovaniya' => $sorevnovaniya,
+            'structures' => $structures,
+            'vidSportas' => $vidSportas,
+            'model' => $model,
+        ]);
+    }
+}
+```
+
+index.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+
+$this->title = 'Соревнования';
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<div class="sorevnovaniya-index">
+
+    <h1><?= Html::encode($this->title) ?></h1>
+
+    <div class="search-form">
+        <?php $form = ActiveForm::begin(); ?>
+
+        <?= $form->field($model, 'id_structure')->dropDownList($structures, ['prompt' => 'Выберите спортивное сооружение']) ?>
+
+        <?= $form->field($model, 'id_vid_sporta')->dropDownList($vidSportas, ['prompt' => 'Выберите вид спорта']) ?>
+
+        <div class="form-group">
+            <?= Html::submitButton('Получить записи', ['class' => 'btn btn-primary']) ?>
+            <?= Html::a('Получить все записи', ['index'], ['class' => 'btn btn-default']) ?>
+        </div>
+
+        <?php ActiveForm::end(); ?>
+    </div>
+
+    <h2>Список соревнований</h2>
+
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Название соревнования</th>
+                <th>Спортивное сооружение</th>
+                <th>Тип сооружения</th>
+                <th>Вид спорта</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($sorevnovaniya as $sorevnovanie): ?>
+                <tr>
+                    <td><?= Html::encode($sorevnovanie->name) ?></td>
+                    <td><?= Html::encode($sorevnovanie->structure->name) ?></td>
+                    <td><?= Html::encode($sorevnovanie->structure->type) ?></td> <!-- Добавлено поле type -->
+                    <td><?= Html::encode($sorevnovanie->vidSporta->name) ?></td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+```

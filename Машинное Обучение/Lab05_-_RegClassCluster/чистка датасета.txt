@@ -1,0 +1,192 @@
+мне нужно почистить датасет при помощи следующих методов:
+Обработка пропусков данных:
+
+```
+df.fillna(0, inplace=True)
+
+print(df.head())
+
+missing_counts = features.isnull().sum()
+missing_counts
+
+features[['LotFrontage', 'MSSubClass', 'LotArea', 'LotShape', 'LandContour', 'MSZoning']][1:20]
+```
+
+Поиск неявных дубликатов:
+```
+# Определение словаря соответствий
+zonings = {
+    'RL': 'Residential',
+    'RM': 'Residential',
+    'C (all)': 'Commercial',
+    'FV': 'Floating Village Residential',
+    'RH': 'Residential',
+    'RP': 'Residential',
+    'A': 'Agriculture',
+    'I': 'Industrial',
+    'C': 'Commercial'
+}
+
+# Функция для очистки данных зонирования
+def clean_zoning(response):
+    return zonings.get(response, 'Other')
+
+# Применение функции к столбцу 'MSZoning'
+features['MSZoning'] = features['MSZoning'].apply(lambda x: clean_zoning(x))
+
+# Печать первых пяти строк данных
+print(features.head())
+```
+
+Обнаружение выбросов:
+```
+%matplotlib inline
+from matplotlib import pyplot as plt
+import seaborn as sns
+# Визуализация распределения площади участка
+sns.set(color_codes=True)
+plot = sns.distplot(features['LotArea'].dropna())
+plot.figure.set_size_inches(6,6) # в дюймах
+
+sns.boxplot(x=features['LotArea'].dropna())
+features.loc[(features.LotArea < 500) | (features.LotArea > 100000), 'LotArea'] = np.nan
+
+#визуализация распределения возраста
+%matplotlib inline
+import seaborn as sns
+sns.set(color_codes=True)
+plot = sns.distplot(features.LotArea.dropna())
+plot.figure.set_size_inches(6,6) # в дюймах
+
+#обработка nan значений, замена их на среднее значение по столбцу
+features['LotArea'] = features['LotArea'].fillna(features['LotArea'].mean())
+print(features.isnull().sum()['LotArea'])
+print(features.LotArea.max())
+sns.boxplot(x=features.LotArea.dropna())
+```
+
+Кодирование данных:
+```
+features['MSSubClass'].value_counts(dropna=False)
+
+features['Street'] = df['Street'].map({'Grvl': 0,
+                               'Pave': 1})
+
+#автоматическое кодирование
+#Проблема с этим подходом заключается в том, что вводится порядок, который может отсутствовать в исходных данных.
+from sklearn import preprocessing
+label_encoder = preprocessing.LabelEncoder()
+label_encoder.fit(features['Street'])
+label_encoder.transform(features['Street'])
+
+#автоматическое кодирование
+pd.get_dummies(features['Street'])
+```
+
+Зависимости в данных:
+```
+var_corr = round(features.corr(numeric_only=True),2)
+print(var_corr)
+mask = np.zeros_like(var_corr)
+sns.heatmap(var_corr
+                , mask = mask
+                , square = True
+                , annot = True
+                , annot_kws={'size': 10.5, 'weight' : 'bold'}
+                , cmap=plt.get_cmap("RdYlBu")
+                , linewidths=.1)
+plt.title('Карта корреляции', fontsize=14)
+plt.show()
+# plt.colormaps() -  так можно посмотреть доступные цветовые карты
+```
+
+Нормализация данных:
+```
+from sklearn.preprocessing import StandardScaler
+
+# Создаем экземпляр StandardScaler
+scale_features_std = StandardScaler()
+
+# Выбираем столбец для нормализации, в данном случае 'LotArea'
+features['LotArea'] = scale_features_std.fit_transform(features[['LotArea']])
+
+# Печатаем первые 5 строк вашего DataFrame, чтобы увидеть результаты
+print(features.head())
+
+#нормализация Min-max
+features["LotArea"] = df["LotArea"]
+features['LotArea'] = features['LotArea'].fillna(features['LotArea'].mean())
+print(features.head())
+
+from sklearn.preprocessing import MinMaxScaler
+scale_features_mm = MinMaxScaler()
+features[["LotArea"]] = scale_features_mm.fit_transform(features[["LotArea"]])
+print(features.head())
+```
+
+Разделение данных для обучения и тестирования:
+```
+from sklearn.model_selection import train_test_split
+import pandas as pd
+
+features = df.drop('SalePrice', axis=1)
+labels = df['SalePrice']
+
+features_train, features_test, labels_train, labels_test = train_test_split(features, labels, test_size=0.2, random_state = 0)
+
+print(features.shape)
+print(features_train.shape)
+print(features_test.shape)
+```
+
+вот мой код:
+```
+# Импорт необходимых библиотек
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.linear_model import LinearRegression
+import seaborn as sns
+
+# Включаем стиль seaborn
+sns.set()
+
+# Загружаем данные из CSV файла с разделителем ;
+data = pd.read_csv('exam_регр.csv', sep=';')
+
+# Выводим имена столбцов
+print(data.columns)
+
+# Удаление пробелов из имен столбцов (если есть)
+data.columns = data.columns.str.strip()
+
+# Извлекаем переменные
+x = data['lesson_price'].values  # Изменено на 'lesson_price'
+y = data['qualification'].values   # Изменено на 'qualification'
+
+# Создаем график рассеяния
+plt.scatter(x, y)
+plt.xlabel('Lesson Price')  # Изменено на 'Lesson Price'
+plt.ylabel('Qualification')  # Изменено на 'Qualification'
+plt.title('Scatter Plot of Qualification vs Lesson Price')
+
+# Создаем и обучаем модель линейной регрессии
+model = LinearRegression(fit_intercept=True)
+model.fit(x[:, np.newaxis], y)
+
+# Предсказываем значения на основе модели
+xfit = np.linspace(x.min(), x.max(), 1000)
+yfit = model.predict(xfit[:, np.newaxis])
+
+# Строим график с линейной регрессией
+plt.scatter(x, y)
+plt.plot(xfit, yfit, color='red')
+plt.xlabel('Lesson Price')  # Изменено на 'Lesson Price'
+plt.ylabel('Qualification')  # Изменено на 'Qualification'
+plt.title('Linear Regression Fit')
+plt.show()
+
+# Выводим угловой коэффициент и точку пересечения
+print("Угловой коэффициент: ", model.coef_[0])
+print("Точка пересечения с осью координат:", model.intercept_)
+```

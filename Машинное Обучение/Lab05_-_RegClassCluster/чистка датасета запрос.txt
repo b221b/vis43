@@ -1,0 +1,159 @@
+мне нужно что бы ты этим кодом почистил следующий код:
+```
+# Импорт необходимых библиотек
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.linear_model import LinearRegression
+import seaborn as sns
+
+# Включаем стиль seaborn
+sns.set()
+
+# Загружаем данные из CSV файла с разделителем ;
+data = pd.read_csv('exam_регр.csv', sep=';')
+
+# Выводим имена столбцов
+print(data.columns)
+
+# Удаление пробелов из имен столбцов (если есть)
+data.columns = data.columns.str.strip()
+
+# Извлекаем переменные
+x = data['lesson_price'].values  # Изменено на 'lesson_price'
+y = data['qualification'].values   # Изменено на 'qualification'
+
+# Создаем график рассеяния
+plt.scatter(x, y)
+plt.xlabel('Lesson Price')  # Изменено на 'Lesson Price'
+plt.ylabel('Qualification')  # Изменено на 'Qualification'
+plt.title('Scatter Plot of Qualification vs Lesson Price')
+
+# Создаем и обучаем модель линейной регрессии
+model = LinearRegression(fit_intercept=True)
+model.fit(x[:, np.newaxis], y)
+
+# Предсказываем значения на основе модели
+xfit = np.linspace(x.min(), x.max(), 1000)
+yfit = model.predict(xfit[:, np.newaxis])
+
+# Строим график с линейной регрессией
+plt.scatter(x, y)
+plt.plot(xfit, yfit, color='red')
+plt.xlabel('Lesson Price')  # Изменено на 'Lesson Price'
+plt.ylabel('Qualification')  # Изменено на 'Qualification'
+plt.title('Linear Regression Fit')
+plt.show()
+
+# Выводим угловой коэффициент и точку пересечения
+print("Угловой коэффициент: ", model.coef_[0])
+print("Точка пересечения с осью координат:", model.intercept_)
+
+```
+
+код для очистки:
+```
+# Импорт необходимых библиотек
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, LabelEncoder
+
+# Включаем стиль seaborn
+sns.set()
+
+# Загружаем данные из CSV файла
+data = pd.read_csv('exam_регр.csv', sep=';')
+
+# Выводим имена столбцов
+print(data.columns)
+
+# Удаление пробелов из имен столбцов (если есть)
+data.columns = data.columns.str.strip()
+
+# Обработка пропусков данных
+data.fillna(0, inplace=True)
+print(data.head())
+
+missing_counts = data.isnull().sum()
+print("Количество пропусков в каждом столбце:\n", missing_counts)
+
+# Обнаружение выбросов
+plt.figure(figsize=(12, 6))
+
+# Визуализация распределения 'lesson_price'
+sns.distplot(data['lesson_price'].dropna(), bins=30)
+plt.title('Распределение цен за урок')
+plt.show()
+
+# Определение выбросов в 'lesson_price'
+data.loc[(data.lesson_price < 0) | (data.lesson_price > 1000), 'lesson_price'] = np.nan
+
+# Обработка NaN значений, замена их на среднее значение по столбцу
+data['lesson_price'] = data['lesson_price'].fillna(data['lesson_price'].mean())
+print("Количество пропусков в lesson_price после обработки:", data.isnull().sum()['lesson_price'])
+print("Максимальное значение lesson_price:", data.lesson_price.max())
+
+# Визуализация очищенного распределения
+sns.boxplot(x=data.lesson_price.dropna())
+plt.title('Боксплот цен за урок после очистки')
+plt.show()
+
+# Кодирование категориальных данных
+for column in data.select_dtypes(include=['object']).columns:
+    label_encoder = LabelEncoder()
+    data[column] = label_encoder.fit_transform(data[column])
+
+# Проверка зависимостей в данных
+var_corr = round(data.corr(numeric_only=True), 2)
+print(var_corr)
+
+mask = np.zeros_like(var_corr)
+sns.heatmap(var_corr, mask=mask, square=True, annot=True, annot_kws={'size': 10.5, 'weight': 'bold'}, cmap=plt.get_cmap("RdYlBu"), linewidths=.1)
+plt.title('Карта корреляции', fontsize=14)
+plt.show()
+
+# Нормализация данных
+# Стандартная нормализация
+scale_features_std = StandardScaler()
+data[['lesson_price']] = scale_features_std.fit_transform(data[['lesson_price']])
+
+# Нормализация Min-Max
+minmax_scaler = MinMaxScaler()
+data[['lesson_price']] = minmax_scaler.fit_transform(data[['lesson_price']])
+print(data.head())
+
+# Разделение данных для обучения и тестирования
+features = data.drop(['Id', 'mean_exam_points'], axis=1)  # Убираем 'Id' и целевую переменную
+labels = data['mean_exam_points']
+
+features_train, features_test, labels_train, labels_test = train_test_split(features, labels, test_size=0.2, random_state=0)
+
+print("Форма данных:")
+print("Общие данные:", features.shape)
+print("Обучающие данные:", features_train.shape)
+print("Тестовые данные:", features_test.shape)
+
+# Создаем и обучаем модель линейной регрессии
+model = LinearRegression(fit_intercept=True)
+model.fit(features_train, labels_train)
+
+# Предсказываем значения на основе модели
+predictions = model.predict(features_test)
+
+# Строим график с линейной регрессией
+plt.scatter(labels_test, predictions)
+plt.xlabel('Истинные значения')
+plt.ylabel('Предсказанные значения')
+plt.title('Сравнение истинных и предсказанных значений')
+plt.show()
+
+# Выводим угловой коэффициент и точку пересечения
+print("Угловой коэффициент: ", model.coef_)
+print("Точка пересечения с осью координат:", model.intercept_)
+```
+
+сделай так что бы этот код с очисткой реально мог почистить мой код
