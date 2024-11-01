@@ -1,0 +1,304 @@
+я работаю с php, с фрейворком yii2, вот мое задание:
+Создайте пользовательские формы для ввода данных для пользовательских 
+запросов.
+1. Для формирования динамических запросов используйте:
+a. Выпадающий список с возможными вариантами условий запроса.
+b. Поле для открытого ввода данных.
+c. Радиокнопки/чекбоксы.
+2. Добавьте правила валидации. Измените стандартные сообщения об ошибках.
+
+
+реализуй следующий запрос:
+```
+9. Получить перечень спортивных клубов и число спортсменов этих клубов, 
+участвовавших в спортивных соревнованиях в течение заданного интервала 
+времени. 
+```
+
+мне необходимо что бы ты сделал контроллер со всеми необходимыми функциями, что бы все сразу могло работать.
+сделай так же представление в единственном файле - index.php, без лишних файлов по типу Results.php и тд.
+
+при стартовом запуске страницы мне нужно что бы выводились все записи.
+в выборке должны участвовать поля - name из sport_club, 
+и count поля name из sportsmen где id_sport_club совпадает с id в таблице sport_club
+эта выборка должна быть в том случае, если спортсмен участвовал в соревновании которое было в те даты, 
+которые укажет пользователь в поле data_provedeniya из sorevnovaniya.
+
+так же мне нужна кнопка "получить все записи", которая будет выводить на страницу все имеющиенся записи.
+
+обязательные условия - правила валидации пишем в отдельной модели
+
+для этого запроса у меня уже создана модель таблиц sport_club:
+```
+<?php
+
+namespace app\models;
+
+use yii\db\ActiveRecord;
+
+class SportClub extends ActiveRecord
+{
+    public static function tableName()
+    {
+        return 'sport_club';
+    }
+
+    public function getSportsmen()
+    {
+        return $this->hasMany(Sportsmen::class, ['id_sport_club' => 'id']);
+    }
+}
+```
+и модель таблицы sportsmen:
+```
+<?php
+
+namespace app\models;
+
+use yii\db\ActiveRecord;
+
+class Sportsmen extends ActiveRecord
+{
+    public static function tableName()
+    {
+        return 'sportsmen';
+    }
+
+    public function getSportClub()
+    {
+        return $this->hasOne(SportClub::class, ['id' => 'id_sport_club']);
+    }
+
+    public function getSportsmenPrizers()
+    {
+        return $this->hasMany(SportsmenPrizer::class, ['id_sportsmen' => 'id']);
+    }
+
+    public function getSportsmenSorevnovaniyas()
+    {
+        return $this->hasMany(SportsmenSorevnovaniya::class, ['id_sportsmen' => 'id']);
+    }
+
+    public function getSportsmenTreners()
+    {
+        return $this->hasMany(SportsmenTreners::class, ['id_sportsmen' => 'id']);
+    }
+
+    public function getSportsmenVidSporta()
+    {
+        return $this->hasMany(SportsmenVidSporta::class, ['id_sportsmen' => 'id']);
+    }
+
+    public $id_vid_sporta;
+
+    public function rules()
+    {
+        return [
+            [['id'], 'required', 'message' => 'Пожалуйста, выберите спортсмена.'],
+            [['razryad'], 'integer', 'message' => 'Разряд должен быть целым числом.'],
+            [['razryad'], 'default', 'value' => null],
+            [['razryad', 'id_vid_sporta'], 'integer'],
+            [['id_vid_sporta'], 'default', 'value' => null],
+        ];
+    }
+
+    public function attributeLabels()
+    {
+        return [
+            'razryad' => 'Разряд спортсмена',
+            'id_vid_sporta' => 'Вид спорта',
+            'id' => 'Спортсмены',
+        ];
+    }
+}
+```
+
+вот моя бд:
+```
+-- База данных: sportOrg
+
+-- Структура таблицы org
+CREATE TABLE `org` (
+  `id` int NOT NULL,
+  `fio` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы org_sorevnovaniya
+CREATE TABLE `org_sorevnovaniya` (
+  `id` int NOT NULL,
+  `id_org` int NOT NULL,
+  `id_sorevnovaniya` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы prizer
+CREATE TABLE `prizer` (
+  `id` int NOT NULL,
+  `mesto` int NOT NULL,
+  `nagrada` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sorevnovaniya
+CREATE TABLE `sorevnovaniya` (
+  `id` int NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `id_structure` int NOT NULL,
+  `id_vid_sporta` int NOT NULL,
+  `data_provedeniya` date NOT NULL,
+  `id_prizer` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sportsmen
+CREATE TABLE `sportsmen` (
+  `id` int NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `razryad` int NOT NULL,
+  `id_sport_club` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы `sportsmen_prizer`
+
+CREATE TABLE `sportsmen_prizer` (
+  `id` int NOT NULL,
+  `id_sportsmen` int NOT NULL,
+  `id_prizer` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sportsmen_sorevnovaniya
+CREATE TABLE `sportsmen_sorevnovaniya` (
+  `id` int NOT NULL,
+  `id_sportsmen` int NOT NULL,
+  `id_sorevnovaniya` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sportsmen_treners
+CREATE TABLE `sportsmen_treners` (
+  `id` int NOT NULL,
+  `id_sportsmen` int NOT NULL,
+  `id_treners` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sportsmen_vidSporta
+CREATE TABLE `sportsmen_vidSporta` (
+  `id` int NOT NULL,
+  `id_sportsmen` int NOT NULL,
+  `id_vid_sporta` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sport_club
+CREATE TABLE `sport_club` (
+  `id` int NOT NULL,
+  `name` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы structure
+CREATE TABLE `structure` (
+  `id` int NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы structure_chars
+CREATE TABLE `structure_chars` (
+  `id` int NOT NULL,
+  `id_structure` int NOT NULL,
+  `vmestimost` int DEFAULT NULL,
+  `tip_pokritiya` varchar(255) DEFAULT NULL,
+  `kolvo_oborydovaniya` int DEFAULT NULL,
+  `kolvo_tribun` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы treners
+CREATE TABLE `treners` (
+  `id` int NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы vid_sporta
+CREATE TABLE `vid_sporta` (
+  `id` int NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `id_treners` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Связи
+
+-- Ограничения внешнего ключа сохраненных таблиц
+
+-- Ограничения внешнего ключа таблицы `org_sorevnovaniya`
+ALTER TABLE `org_sorevnovaniya`
+  ADD CONSTRAINT `org_sorevnovaniya_ibfk_1` FOREIGN KEY (`id_org`) REFERENCES `org` (`id`),
+  ADD CONSTRAINT `org_sorevnovaniya_ibfk_2` FOREIGN KEY (`id_sorevnovaniya`) REFERENCES `sorevnovaniya` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sorevnovaniya`
+ALTER TABLE `sorevnovaniya`
+  ADD CONSTRAINT `sorevnovaniya_ibfk_1` FOREIGN KEY (`id_structure`) REFERENCES `structure` (`id`),
+  ADD CONSTRAINT `sorevnovaniya_ibfk_2` FOREIGN KEY (`id_vid_sporta`) REFERENCES `vid_sporta` (`id`),
+  ADD CONSTRAINT `sorevnovaniya_ibfk_4` FOREIGN KEY (`id_prizer`) REFERENCES `prizer` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sportsmen`
+ALTER TABLE `sportsmen`
+  ADD CONSTRAINT `sportsmen_ibfk_1` FOREIGN KEY (`id_sport_club`) REFERENCES `sport_club` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sportsmen_prizer`
+ALTER TABLE `sportsmen_prizer`
+  ADD CONSTRAINT `sportsmen_prizer_ibfk_1` FOREIGN KEY (`id_sportsmen`) REFERENCES `sportsmen` (`id`),
+  ADD CONSTRAINT `sportsmen_prizer_ibfk_2` FOREIGN KEY (`id_prizer`) REFERENCES `prizer` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sportsmen_sorevnovaniya`
+ALTER TABLE `sportsmen_sorevnovaniya`
+  ADD CONSTRAINT `sportsmen_sorevnovaniya_ibfk_2` FOREIGN KEY (`id_sportsmen`) REFERENCES `sportsmen` (`id`),
+  ADD CONSTRAINT `sportsmen_sorevnovaniya_ibfk_3` FOREIGN KEY (`id_sorevnovaniya`) REFERENCES `sorevnovaniya` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sportsmen_treners`
+ALTER TABLE `sportsmen_treners`
+  ADD CONSTRAINT `sportsmen_treners_ibfk_1` FOREIGN KEY (`id_sportsmen`) REFERENCES `sportsmen` (`id`),
+  ADD CONSTRAINT `sportsmen_treners_ibfk_2` FOREIGN KEY (`id_treners`) REFERENCES `treners` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sportsmen_vidSporta`
+ALTER TABLE `sportsmen_vidSporta`
+  ADD CONSTRAINT `sportsmen_vidsporta_ibfk_1` FOREIGN KEY (`id_sportsmen`) REFERENCES `sportsmen` (`id`),
+  ADD CONSTRAINT `sportsmen_vidsporta_ibfk_2` FOREIGN KEY (`id_vid_sporta`) REFERENCES `vid_sporta` (`id`);
+
+-- Ограничения внешнего ключа таблицы `structure_chars`
+ALTER TABLE `structure_chars`
+  ADD CONSTRAINT `structure_chars_ibfk_1` FOREIGN KEY (`id_structure`) REFERENCES `structure` (`id`);
+
+-- Ограничения внешнего ключа таблицы `vid_sporta`
+ALTER TABLE `vid_sporta`
+  ADD CONSTRAINT `vid_sporta_ibfk_1` FOREIGN KEY (`id_treners`) REFERENCES `treners` (`id`);
+COMMIT;
+```
+
+запрос sql для того что бы было понятнее:
+```
+9)
+SELECT sc.name, COUNT(*)
+FROM sport_club AS sc
+INNER JOIN sportsmen AS s ON s.id_sport_club = sc.id
+INNER JOIN sportsmen_sorevnovaniya AS sss ON sss.id_sportsmen = s.id
+INNER JOIN sorevnovaniya AS ss ON ss.id = sss.id_sorevnovaniya
+WHERE ss.data_provedeniya BETWEEN '2021-08-20' AND '2021-10-20'
+GROUP BY sc.name;
+
+|
+|
+неправильно считает количество игроков в команде
+
+SELECT sc.name, COUNT(s.id)
+FROM sport_club AS sc
+INNER JOIN sportsmen AS s ON s.id_sport_club = sc.id
+GROUP BY sc.name;
+|
+|
+правильносчитает количество игроков в команде, но нету условия по датам
+
+SELECT sc.name, COUNT(DISTINCT s.id)
+FROM sport_club AS sc
+INNER JOIN sportsmen AS s ON s.id_sport_club = sc.id
+LEFT JOIN sportsmen_sorevnovaniya AS sss ON sss.id_sportsmen = s.id
+LEFT JOIN sorevnovaniya AS ss ON ss.id = sss.id_sorevnovaniya AND ss.data_provedeniya BETWEEN '2021-08-20' AND '2021-10-20'
+GROUP BY sc.name;
+|
+|
+правильно считает, но там входят и те, кто в соревах не участвовал
+```
+в этом sql только наброски, может ты сможешь разобраться как нужно сделать правильно
