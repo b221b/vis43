@@ -10,28 +10,24 @@ c. Радиокнопки/чекбоксы.
 
 реализуй следующий запрос:
 ```
-4. Получить список спортсменов, занимающихся более чем одним видом спорта с 
-указанием этих видов спорта. 
+13.Получить перечень спортивных сооружений и даты проведения на них 
+соревнований в течение определенного периода времени. 
 ```
 
 мне необходимо что бы ты сделал контроллер со всеми необходимыми функциями, что бы все сразу могло работать.
 сделай так же представление в единственном файле - index.php, без лишних файлов по типу Results.php и тд.
 
-при стартовом запуске страницы должны сразу отображаться все записи.
-на странице представления мне нужно что бы была выборка всех спортсменов (поле name из таблицы Sportsmen), 
-поле Виды спорта (count), тут мы будем брать записи из таблицы sportsmen_vidSporta, эта таблица служит в роли связи 
-многие ко многим между таблицами sportsmen и vid_sporta.
+при стартовом запуске страницы мне нужно что бы выводились все записи.
+в выборке должны участвовать поля - name из structure, data_provedeniya из sorevnovaniya, name из sorevnovaniya.
 
-поле для заполнения цифр (необязательное) для указания количества видов спорта. у меня есть таблица sportsmen с 
-именами спортсменов, эта таблица связана с таблицей sportsmen_vidSporta которая служит в роли связи 
-многие ко многим и есть таблица vidSporta в котором есть поле name с названием вида спорта
+должно быть поле для настройки выборки это data_provedeniya из sorevnovaniya, пользователь указывает дату старта 
+и дату окончания.
 
 так же мне нужна кнопка "получить все записи", которая будет выводить на страницу все имеющиенся записи.
 
-обязательные условия - правила валидации пишем в отдельной модели, в таблице с выборкой данных мне нужно поле name 
-из sportsmen, поле name из таблицы vid_sporta, и из таблице sportsmen_vidSporta количество видов спорта которые относятся к спортсмену
+обязательные условия - правила валидации пишем в отдельной модели
 
-для этого запроса у меня уже создана модель таблиц sportsmen:
+для этого запроса у меня уже создана модель таблиц structure:
 ```
 <?php
 
@@ -39,115 +35,85 @@ namespace app\models;
 
 use yii\db\ActiveRecord;
 
-class Sportsmen extends ActiveRecord
+class Structure extends ActiveRecord
 {
     public static function tableName()
     {
-        return 'sportsmen';
+        return 'structure';
     }
 
-    public function getSportClub()
+    public function getSorevnovaniyas()
     {
-        return $this->hasOne(SportClub::class, ['id' => 'id_sport_club']);
+        return $this->hasMany(Sorevnovaniya::class, ['id_structure' => 'id']);
     }
 
-    public function getSportsmenPrizers()
+    public function getStructureChars()
     {
-        return $this->hasMany(SportsmenPrizer::class, ['id_sportsmen' => 'id']);
+        return $this->hasMany(StructureChars::class, ['id_structure' => 'id']);
+    }
+
+    // Новый метод для получения списка структур
+    public static function getList()
+    {
+        return self::find()->select(['name', 'id'])->indexBy('id')->column();
+    }
+}
+```
+и модель таблицы sorevnovaniya:
+```
+<?php
+
+namespace app\models;
+
+use yii\db\ActiveRecord;
+
+class Sorevnovaniya extends ActiveRecord
+{
+    public static function tableName()
+    {
+        return 'sorevnovaniya';
+    }
+
+    public function getOrgSorevnovaniyas()
+    {
+        return $this->hasMany(OrgSorevnovaniya::class, ['id_sorevnovaniya' => 'id']);
+    }
+
+    public function getPrizer()
+    {
+        return $this->hasOne(Prizer::class, ['id' => 'id_prizer']);
+    }
+
+    public function getStructure()
+    {
+        return $this->hasOne(Structure::class, ['id' => 'id_structure']);
+    }
+
+    public function getVidSporta()
+    {
+        return $this->hasOne(VidSporta::class, ['id' => 'id_vid_sporta']);
     }
 
     public function getSportsmenSorevnovaniyas()
     {
-        return $this->hasMany(SportsmenSorevnovaniya::class, ['id_sportsmen' => 'id']);
+        return $this->hasMany(SportsmenSorevnovaniya::class, ['id_sorevnovaniya' => 'id']);
     }
 
-    public function getSportsmenTreners()
-    {
-        return $this->hasMany(SportsmenTreners::class, ['id_sportsmen' => 'id']);
-    }
-
-    public function getSportsmenVidSporta()
-    {
-        return $this->hasMany(SportsmenVidSporta::class, ['id_sportsmen' => 'id']);
-    }
-
-    public $id_vid_sporta;
-
+    // Правила валидации
     public function rules()
     {
         return [
-            [['id'], 'required', 'message' => 'Пожалуйста, выберите спортсмена.'],
-            [['razryad'], 'integer', 'message' => 'Разряд должен быть целым числом.'],
-            [['razryad'], 'default', 'value' => null],
-            [['razryad', 'id_vid_sporta'], 'integer'],
-            [['id_vid_sporta'], 'default', 'value' => null],
+            [['id_structure', 'id_vid_sporta'], 'safe'],
+            [['id_structure', 'id_vid_sporta'], 'integer'],
         ];
     }
 
     public function attributeLabels()
     {
         return [
-            'razryad' => 'Разряд спортсмена',
+            'id_structure' => 'Структура',
             'id_vid_sporta' => 'Вид спорта',
-            'id' => 'Спортсмены',
         ];
-    }
-}
-```
-и модель таблицы vid_sporta:
-```
-<?php
-
-namespace app\models;
-
-use yii\db\ActiveRecord;
-
-class VidSporta extends ActiveRecord
-{
-    public static function tableName()
-    {
-        return 'vid_sporta';
-    }
-
-    public function getSportsmenVidSporta()
-    {
-        return $this->hasMany(SportsmenVidSporta::class, ['id_vid_sporta' => 'id']);
-    }
-
-    public function getTreners()
-    {
-        return $this->hasOne(Treners::class, ['id' => 'id_treners']);
-    }
-
-    public function getSorevnovaniyas()
-    {
-        return $this->hasMany(Sorevnovaniya::class, ['id_vid_sporta' => 'id']);
-    }
-}
-```
-и модель таблицы sportsmen_vidSporta:
-```
-<?php
-
-namespace app\models;
-
-use yii\db\ActiveRecord;
-
-class SportsmenVidSporta extends ActiveRecord
-{
-    public static function tableName()
-    {
-        return 'sportsmen_vidSporta';
-    }
-
-    public function getSportsmen()
-    {
-        return $this->hasOne(Sportsmen::class, ['id' => 'id_sportsmen']);
-    }
-
-    public function getVidSporta()
-    {
-        return $this->hasOne(VidSporta::class, ['id' => 'id_vid_sporta']);
     }
 }
 ```
@@ -307,12 +273,12 @@ ALTER TABLE `vid_sporta`
 COMMIT;
 ```
 
-вот запрос на языке sql что бы тебе было понятнее разобраться, только тут запрос статический, а мне нужен динамический:
+запрос sql для того что бы было понятнее:
 ```
-SELECT s.name, GROUP_CONCAT(vs.name SEPARATOR ', ') AS sports
-FROM sportsmen AS s
-INNER JOIN sportsmen_vidSporta AS svs ON svs.id_sportsmen = s.id
-INNER JOIN vid_sporta AS vs ON vs.id = svs.id_vid_sporta
-GROUP BY s.id
-HAVING COUNT(*) > 1;
+SELECT s.name, ss.data_provedeniya
+FROM structure AS s
+INNER JOIN sorevnovaniya AS ss ON ss.id_structure = s.id
+WHERE ss.data_provedeniya BETWEEN '2021-09-01' AND '2021-09-25';
 ```
+только тут запрос статический, а мне нужен динамический, 
+что бы пользователь сам мог выбирать

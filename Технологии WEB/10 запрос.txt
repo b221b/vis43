@@ -1,0 +1,92 @@
+сделай мне поле id_vid_sporta из таблицы treners вместо id_treners из vid_sporta
+
+TrenersController.php:
+```
+<?php
+
+namespace app\controllers;
+
+use Yii;
+use yii\web\Controller;
+use app\models\Treners;
+use app\models\VidSporta;
+use app\models\TrenersVidSportaSearch;
+
+class TrenersController extends Controller
+{
+    public function actionIndex()
+{
+    $model = new TrenersVidSportaSearch();
+    $dataProvider = [];
+
+    // Получаем всех тренеров и их виды спорта
+    $query = Treners::find()
+        ->select(['t.name AS trainer_name', 'vs.name AS sport_name'])
+        ->alias('t')
+        ->leftJoin('vid_sporta vs', 'vs.id_treners = t.id'); // Используем LEFT JOIN
+
+    // Обработка формы поиска (если необходимо)
+    if ($model->load(Yii::$app->request->post()) && $model->validate()) {
+        // Если выбран вид спорта, фильтруем по нему
+        $query->andWhere(['vs.id' => $model->sport]); // Используем ID вида спорта
+    }
+
+    $dataProvider = $query->asArray()->all(); // Получаем данные
+
+    return $this->render('index', [
+        'model' => $model,
+        'dataProvider' => $dataProvider,
+        'sports' => VidSporta::find()->select('name')->indexBy('id')->column(),
+    ]);
+}
+
+
+}
+```
+
+index.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+use yii\grid\GridView;
+
+$this->title = 'Список тренеров по виду спорта';
+$this->params['breadcrumbs'][] = $this->title;
+
+?>
+
+<div class="treners-index">
+    <h1><?= Html::encode($this->title) ?></h1>
+
+    <div class="search-form">
+        <?php $form = ActiveForm::begin(); ?>
+
+        <?= $form->field($model, 'sport')->dropDownList($sports, ['prompt' => 'Выберите вид спорта']) ?>
+
+        <div class="form-group">
+            <?= Html::submitButton('Получить тренеров', ['class' => 'btn btn-primary']) ?>
+            <?= Html::a('Получить все записи', ['index'], ['class' => 'btn btn-default']) ?>
+        </div>
+
+        <?php ActiveForm::end(); ?>
+    </div>
+
+    <h2>Результаты:</h2>
+    <?= GridView::widget([
+        'dataProvider' => new \yii\data\ArrayDataProvider([
+            'allModels' => $dataProvider,
+            'pagination' => [
+                'pageSize' => 10,
+            ],
+        ]),
+        'columns' => [
+            ['class' => 'yii\grid\SerialColumn'],
+            'trainer_name',
+            'sport_name',
+        ],
+    ]); ?>
+
+</div>
+```

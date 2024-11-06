@@ -1,0 +1,101 @@
+сделай так, если у одного организатора несколько соревнований, то они будут перечисялться через запятую
+
+OrgController.php:
+```
+<?php
+
+namespace app\controllers;
+
+use Yii;
+use yii\web\Controller;
+use app\models\DateRangeForm;
+use app\models\Org;
+use yii\data\ArrayDataProvider;
+
+class OrgController extends Controller
+{
+    public function actionIndex()
+    {
+        $model = new DateRangeForm();
+        $dataProvider = new ArrayDataProvider([
+            'allModels' => [],
+            'pagination' => [
+                'pageSize' => 10,
+            ],
+        ]);
+
+        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
+            $startDate = $model->start_date;
+            $endDate = $model->end_date;
+
+            $query = (new \yii\db\Query())
+                ->select(['o.fio', 's.name', 'COUNT(s.id) AS count'])
+                ->from('org o')
+                ->innerJoin('org_sorevnovaniya os', 'os.id_org = o.id')
+                ->innerJoin('sorevnovaniya s', 's.id = os.id_sorevnovaniya')
+                ->where(['between', 's.data_provedeniya', $startDate, $endDate])
+                ->groupBy(['o.fio', 's.name']); // Группируем по fio и name
+
+            $dataProvider->allModels = $query->all();
+        } else {
+            // Если форма не отправлена, получаем все записи
+            $query = (new \yii\db\Query())
+                ->select(['o.fio', 's.name', 'COUNT(s.id) AS count'])
+                ->from('org o')
+                ->innerJoin('org_sorevnovaniya os', 'os.id_org = o.id')
+                ->innerJoin('sorevnovaniya s', 's.id = os.id_sorevnovaniya')
+                ->groupBy(['o.fio', 's.name']); // Группируем по fio и name
+
+            $dataProvider->allModels = $query->all();
+        }
+
+        return $this->render('index', [
+            'model' => $model,
+            'dataProvider' => $dataProvider,
+        ]);
+    }
+}
+```
+
+index.php:
+```
+<?php
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+use yii\grid\GridView;
+
+$this->title = 'Организаторы соревнований';
+?>
+
+<h1><?= Html::encode($this->title) ?></h1>
+
+<div class="search-form">
+    <?php $form = ActiveForm::begin(); ?>
+
+    <?= $form->field($model, 'start_date')->input('date') ?>
+    <?= $form->field($model, 'end_date')->input('date') ?>
+
+    <div class="form-group">
+        <?= Html::submitButton('Получить записи', ['class' => 'btn btn-primary']) ?>
+        <?= Html::a('Получить все записи', ['index'], ['class' => 'btn btn-default']) ?>
+    </div>
+
+    <?php ActiveForm::end(); ?>
+</div>
+
+<?= GridView::widget([
+    'dataProvider' => $dataProvider,
+    'columns' => [
+        'fio',
+        [
+            'label' => 'Название соревнования',
+            'attribute' => 'name',
+        ],
+        [
+            'label' => 'Количество соревнований',
+            'attribute' => 'count',
+        ],
+    ],
+]); ?>
+
+```
