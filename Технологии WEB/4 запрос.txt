@@ -1,4 +1,4 @@
-сделай так, что бы поле было не razryad, а количество видов спорта спортсмена, что бы если я указал 1, то выведет всех у кого 1 вид спорта, если 2 то всех у кого 2 и тд
+отлично, а теперь добавь функционал для кнопки "показать всех спортсменов"
 
 SportsmenVidSportaController.php:
 ```
@@ -14,9 +14,9 @@ class SportsmenVidSportaController extends Controller
 {
     public function actionIndex()
     {
-        $model = new Sportsmen();
-
+        $model = new Sportsmen(); // Создаем экземпляр модели
         $sportsmenData = [];
+        $sportCount = Yii::$app->request->post('Sportsmen')['sport_count']; // Получаем значение из запроса
 
         // Получаем данные спортсменов по умолчанию
         $query = (new \yii\db\Query())
@@ -26,21 +26,16 @@ class SportsmenVidSportaController extends Controller
             ->innerJoin('vid_sporta vs', 'vs.id = svs.id_vid_sporta')
             ->groupBy('s.id');
 
-        // Обработка формы
-        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
-            $sportCount = $model->razryad;
-            $query->having('COUNT(svs.id_vid_sporta) > :sportCount', [':sportCount' => $sportCount]);
+        // Фильтрация по количеству видов спорта
+        if ($sportCount !== null && $sportCount !== '') {
+            $query->having('COUNT(svs.id_vid_sporta) = :sportCount', [':sportCount' => $sportCount]);
         }
 
-        // Если пользователь нажал на кнопку "Отобразить всех спортсменов"
-        if (Yii::$app->request->get('showAll')) {
-            $sportsmenData = $query->all();
-        } else {
-            $sportsmenData = $query->having('COUNT(svs.id_vid_sporta) > 1')->all();
-        }
+        // Получаем данные спортсменов
+        $sportsmenData = $query->orderBy('sport_count DESC')->all(); // Сортировка по количеству видов спорта
 
         return $this->render('index', [
-            'model' => $model,
+            'model' => $model, // Передаем модель в представление
             'sportsmenData' => $sportsmenData,
         ]);
     }
@@ -64,18 +59,16 @@ $this->params['breadcrumbs'][] = $this->title;
 
     <?php $form = ActiveForm::begin(); ?>
 
-    <?= $form->field($model, 'razryad')->textInput(['type' => 'number', 'placeholder' => 'Введите количество видов спорта']) ?>
+    <?= $form->field($model, 'sport_count')->textInput(['type' => 'number', 'placeholder' => 'Введите количество видов спорта']) ?>
 
     <div class="form-group">
         <?= Html::submitButton('Поиск', ['class' => 'btn btn-primary']) ?>
-        <?= Html::a('Показать всех спортсменов', ['index', 'showAll' => 1], ['class' => 'btn btn-default']) ?> 
+        <?= Html::a('Показать всех спортсменов', ['index'], ['class' => 'btn btn-default']) ?> 
     </div>
 
     <?php ActiveForm::end(); ?>
 
 </div>
-
-<!-- <h2>Список спортсменов</h2> -->
 
 <table class="table table-striped">
     <thead>
@@ -86,13 +79,19 @@ $this->params['breadcrumbs'][] = $this->title;
         </tr>
     </thead>
     <tbody>
-        <?php foreach ($sportsmenData as $sportsman): ?>
+        <?php if (!empty($sportsmenData)): ?>
+            <?php foreach ($sportsmenData as $sportsman): ?>
+                <tr>
+                    <td><?= Html::encode($sportsman['sportsman_name']) ?></td>
+                    <td><?= Html::encode($sportsman['sports']) ?></td>
+                    <td><?= Html::encode($sportsman['sport_count']) ?></td>
+                </tr>
+            <?php endforeach; ?>
+        <?php else: ?>
             <tr>
-                <td><?= Html::encode($sportsman['sportsman_name']) ?></td>
-                <td><?= Html::encode($sportsman['sports']) ?></td>
-                <td><?= Html::encode($sportsman['sport_count']) ?></td>
+                <td colspan="3" class="text-center">Нет данных для отображения</td>
             </tr>
-        <?php endforeach; ?>
+        <?php endif; ?>
     </tbody>
 </table>
 ```
