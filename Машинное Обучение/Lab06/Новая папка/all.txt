@@ -1,0 +1,379 @@
+Задание:
+
+Решите задачу классификации по вашему варианту из предыдущей работы следующими тремя методами:
+
+метод опорных векторов
+дерево принятия решений
+случайный лес
+При решении задачи подберите с использованием кросс-проверки следующие параметры алгоритмов:
+
+параметр C для SVM
+глубину дерева для дерева принятия решений
+количество оценивателей для случайного леса
+Как отработали методы для вашей задачи? Почему получились такие результаты?
+
+мой датасет под который нужно будет сделать задания - exam_регр.csv, 
+с полями - Id, age, years_of_experience, lesson_price, qualification, physics, chemistry, biology, english, geography, history, mean_exam_points.
+в датасете делимитер это ; а не ,
+
+пример:
+
+метод опорных векторов:
+```
+%matplotlib inline
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import stats
+ # Воспользуемся настройками по умолчанию библиотеки Seaborn
+import seaborn as sns
+sns.set()
+
+# Загрузить библиотеки
+from sklearn import datasets
+from sklearn.preprocessing import StandardScaler 
+from sklearn.svm import LinearSVC
+
+# Загрузить данные всего с двумя классами и двумя признаками 
+iris = datasets.load_iris()
+features = iris.data[:300,:2] 
+target = iris.target[:300]
+# Стнадартизировать признаки 
+scaler = StandardScaler()
+features_standardized = scaler.fit_transform(features)
+# Создать опорно-векторный классификатор 
+svc = LinearSVC(C=1.0, dual=True)
+# Натренировать модель
+model = svc.fit(features_standardized, target)
+
+# Загрузить библиотеку
+from matplotlib import pyplot as pit
+
+
+# Вывести точки данных на график и расцветить, используя их класс 
+color = ["red" if C == 0 else "blue" for C in target] 
+pit.scatter(features_standardized[:,0], features_standardized[:,1], c=color)
+
+# Создать гиперплоскость 
+w = svc.coef_[0]
+a = -w[0] / w[1]
+xx = np.linspace(-2.5, 2.5)
+yy = a * xx-(svc.intercept_[0]) / w[1]
+
+# Начертить гиперплоскость 
+pit.plot(xx, yy)
+pit. show ()
+```
+
+SVM-ядра:
+```
+# Загрузить библиотеки 
+from sklearn.svm import SVC 
+from sklearn import datasets
+from sklearn.datasets import make_blobs
+from sklearn.preprocessing import StandardScaler 
+import numpy as np
+# Задать начальное значение рандомизации 
+np.random.seed(0)
+# Сгенерировать два признака 
+features = np.random.randn(200, 2)
+# Cгенерируем линейно разделимые классы
+target_xor = np.logical_xor(features[:, 0] > 0 , features[:, 1] > 0 ) 
+target = np.where(target_xor, 0, 1)
+
+# Создать опорно-векторную машину  с радиально-базисным функциональным ядром (RBF-ядром) 
+svc = SVC(kernel="rbf", random_state=0, gamma=1, C=1)
+# Натренировать классификатор 
+model = svc.fit(features, target)
+
+# Выведем на график наблюдения и гиперплоскость границы решения 
+from matplotlib.colors import ListedColormap
+import matplotlib.pyplot as pit
+
+def plot_decision_regions(X, y, classifier): 
+    cmap = ListedColormap(("red", "blue"))
+    xx1, xx2 = np.meshgrid(np.arange(-3, 3, 0.02), np.arange(-3, 3, 0.02))
+    Z = classifier.predict(np.array([xx1.ravel(), xx2.ravel()]).T)
+    Z = Z.reshape(xx1.shape)
+    plt.contourf(xx1, xx2, Z, alpha=0.1, cmap=cmap)
+    for idx, cl in enumerate(np.unique(y)): 
+        plt.scatter(x=X[y == cl, 0], y=X[y == cl, 1], alpha=0.8, color=cmap(idx), label=cl)
+
+# Создать опорно-векторный классификатор с линейным ядром 
+svc_linear = SVC(kernel="linear", random_state=0, C=1)
+# Натренируем модель 
+svc_linear.fit(features, target)
+SVC(C=1, cache_size=200, class_weight=None, coef0=0.0,
+decision_function_shape='ovr', degree=3, gamma='auto', kernel='linear', max_iter=-1, probability=False, random_state=0, shrinking=True, 
+tol=0.001, verbose=False)
+
+plot_decision_regions(features, target, classifier=svc_linear) 
+pit.show()
+
+# Создать опорно-векторную машину с радиально-базисным функциональным ядром (RBF-ядром) 
+svc = SVC(kernel="rbf", random_state=0, gamma=1, C=1)
+# Натренировать классификатор 
+model = svc.fit(features, target)
+
+# Вывести на график наблюдения и гиперплоскость 
+plot_decision_regions(features, target, classifier=svc) 
+pit. show ()
+```
+
+РАЗМЫТИЕ ОТСТУПОВ:
+```
+def plot_svc_decision_function(model, ax=None, plot_support=True):
+    """Plot the decision function for a 2D SVC"""
+    if ax is None:
+        ax = plt.gca()
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    
+    # create grid to evaluate model
+    x = np.linspace(xlim[0], xlim[1], 30)
+    y = np.linspace(ylim[0], ylim[1], 30)
+    Y, X = np.meshgrid(y, x)
+    xy = np.vstack([X.ravel(), Y.ravel()]).T
+    P = model.decision_function(xy).reshape(X.shape)
+    
+    # plot decision boundary and margins
+    ax.contour(X, Y, P, colors='k',
+               levels=[-1, 0, 1], alpha=0.5,
+               linestyles=['--', '-', '--'])
+    
+    # plot support vectors
+    if plot_support:
+        ax.scatter(model.support_vectors_[:, 0],
+                   model.support_vectors_[:, 1],
+                   s=300, linewidth=1, facecolors='none');
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+
+X, y = make_blobs(n_samples=500, centers=2, random_state=0, cluster_std=0.8)
+fig, ax = plt.subplots(1, 2, figsize=(16, 6))
+fig.subplots_adjust(left=0.0625, right=0.95, wspace=0.1)
+
+for axi, C in zip(ax, [10.0, 0.1]):
+    model = SVC(kernel='linear', C=C).fit(X, y)
+    axi.scatter(X[:, 0], X[:, 1], c=y, s=50, cmap='autumn')
+    plot_svc_decision_function(model, axi)
+    axi.scatter(model.support_vectors_[:, 0], model.support_vectors_[:, 1], s=300, lw=1, facecolors='none')
+    axi.set_title('C = {0:.1f}'.format(C), size=14)
+
+X, y = make_blobs(n_samples=500, centers=2, random_state=0, cluster_std=0.8)
+fig, ax = plt.subplots(1, 2, figsize=(16, 6))
+fig.subplots_adjust(left=0.0625, right=0.95, wspace=0.1)
+for axi, C in zip(ax, [10.0, 0.1]):
+    model = SVC(kernel='rbf', C=C).fit(X, y)
+    axi.scatter(X[:, 0], X[:, 1], c=y, s=50, cmap='autumn')
+    plot_svc_decision_function(model, axi)
+    axi.scatter(model.support_vectors_[:, 0], model.support_vectors_[:, 1], s=300, lw=1, facecolors='none')
+    axi.set_title('C = {0:.1f}'.format(C), size=14)    
+```
+
+Деревья решений и случайные леса:
+```
+%matplotlib inline
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns; sns.set()
+
+from sklearn.datasets import make_blobs
+X, y = make_blobs(n_samples=100, centers=4, random_state=0, cluster_std=1.0)
+plt.scatter(X[:, 0], X[:, 1], c=y, s=50, cmap='rainbow')
+
+from sklearn.tree import DecisionTreeClassifier
+tree = DecisionTreeClassifier().fit(X, y)
+
+def visualize_classifier(model, X, y, ax=None, cmap='rainbow'):
+    ax = ax or plt.gca()
+    # Рисуем обучающие точки
+    ax.scatter(X[:, 0], X[:, 1], c=y, s=30, cmap=cmap, clim=(y.min(), y.max()), zorder=3) 
+    ax.axis('tight')
+    ax.axis('off')
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    # Обучаем оцениватель
+    model.fit(X, y)
+    xx, yy = np.meshgrid(np.linspace(*xlim, num=200), np.linspace(*ylim, num=200))
+    Z = model.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
+    # Создаем цветной график с результатами
+    n_classes = len(np.unique(y))
+    contours = ax.contourf(xx, yy, Z, alpha=0.3, levels=np.arange(n_classes + 1) - 0.5, cmap=cmap, zorder=1)
+    ax.set(xlim=xlim, ylim=ylim)
+
+visualize_classifier(DecisionTreeClassifier(), X, y)
+```
+
+Ансамбли оценивателей: случайные леса:
+```
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import BaggingClassifier
+tree = DecisionTreeClassifier()
+bag = BaggingClassifier(tree, n_estimators=100, max_samples=0.8, random_state=1)
+bag.fit(X, y)
+visualize_classifier(bag, X, y)
+
+from sklearn.ensemble import RandomForestClassifier
+model = RandomForestClassifier(n_estimators=100, random_state=0)
+visualize_classifier(model, X, y)
+```
+
+Выбор оптимальной модели:
+```
+import pandas as pd
+
+df = pd.read_csv('https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data', sep=', ', engine='python')
+# Назначаем имена колонок
+columns = ('age workclass fnlwgt education educ-num marital-status occupation relationship '
+           'race sex capital-gain capital-loss  hours-per-week native-country salary')
+
+numeric_indices = np.array([0, 2, 4, 10, 11, 12])
+categorical_indices = np.array([1, 3, 5, 6, 7, 8, 9, 13])
+
+df.columns = columns.split() #этот метод разделит датасет по колонкам как в массиве columns
+
+df = df.replace('?', np.nan)
+
+df = df.dropna()
+
+df['salary'] = df['salary'].apply((lambda x: x=='>50K')) # Будем предсказывать 1(True), если зарплата больше 50K, 0(False) иначе
+
+numeric_data = df[df.columns[numeric_indices]]
+
+categorial_data = df[df.columns[categorical_indices]]
+categorial_data.head()
+
+df['education'].unique(), len(df['education'].unique())
+
+dummy_features = pd.get_dummies(categorial_data)
+
+X = pd.concat([numeric_data, dummy_features], axis=1)
+X_origin = df.iloc[:, :-1]
+X.head()
+
+y = df['salary']
+
+X.shape, X_origin.shape
+
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(X.values, y.values, 
+                                                    train_size=0.8,
+                                                    random_state=42)
+
+X_test.shape, y_test.shape
+
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV
+
+def search_and_draw(X, y, model, param_name, grid, param_scale='ordinary', draw=True):
+    parameters = {param_name: grid}
+    
+    CV_model = GridSearchCV(estimator=model, 
+                            param_grid=parameters,
+                            cv=5, 
+                            scoring='f1',
+                            n_jobs=-1, 
+                            verbose=10)
+    CV_model.fit(X, y)
+    means = CV_model.cv_results_['mean_test_score']
+    error = CV_model.cv_results_['std_test_score']
+    
+    if draw:
+        plt.figure(figsize=(15,8))
+        plt.title('choose ' + param_name)
+
+
+        if (param_scale == 'log'):
+            plt.xscale('log')
+
+        plt.plot(grid, means, label='mean values of score', color='red', lw=3)
+
+        plt.fill_between(grid, means - 2 * error, means + 2 * error, 
+                         color='green', label='filled area between errors', alpha=0.5)
+        legend_box = plt.legend(framealpha=1).get_frame()
+        legend_box.set_facecolor("white")
+        legend_box.set_edgecolor("black")
+        plt.xlabel('parameter')
+        plt.ylabel('f1')
+        plt.show()
+        
+    return means, error
+
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+
+models = [KNeighborsClassifier(), DecisionTreeClassifier()]
+param_names = ['n_neighbors', 'max_depth']
+grids = [np.array(np.linspace(4, 30, 8), dtype='int'), np.arange(1, 30)]
+param_scales = ['log', 'ordinary']
+
+for model, param_name, grid, param_scale in zip(models, 
+                                                param_names, 
+                                                grids, 
+                                                param_scales):
+    search_and_draw(X_train, y_train, model, param_name, grid, param_scale)
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import cross_val_score
+
+from sklearn.model_selection import KFold
+from sklearn.metrics import roc_auc_score
+from tqdm.notebook import tqdm
+
+max_trees = 100
+
+values = np.arange(max_trees) + 1
+
+kf = KFold(n_splits=5, shuffle=True, random_state=1234)
+
+global_scores = []
+
+for train_indices, val_indices in tqdm(kf.split(X_train), total=5):
+    scores = []
+    
+    X_train_kf = X_train[train_indices]
+    y_train_kf = y_train[train_indices]
+    
+    X_val_kf = X_train[val_indices]
+    y_val_kf = y_train[val_indices]
+    
+    forest = RandomForestClassifier(n_estimators=max_trees)
+    forest.fit(X_train_kf, y_train_kf)
+    trees = forest.estimators_
+    
+    for number_of_trees in tqdm(values, leave=False):
+        thinned_forest = RandomForestClassifier(n_estimators=number_of_trees)
+        
+        thinned_forest.n_classes_ = 2
+        thinned_forest.estimators_ = trees[:number_of_trees]
+
+        scores.append(roc_auc_score(y_val_kf, thinned_forest.predict_proba(X_val_kf)[:, 1]))
+    
+    scores = np.array(scores)
+    
+    global_scores.append(scores)
+
+global_scores = np.stack(global_scores, axis=0)
+
+mean_cross_val_score = global_scores.mean(axis=0)
+std_cross_val_score = global_scores.std(axis=0)
+
+plt.figure(figsize=(15,8))
+plt.title('Качество случайного леса')
+
+plt.plot(values, mean_cross_val_score, label='средние значения', color='red', lw=3)
+plt.fill_between(values, 
+                 mean_cross_val_score - 2 * std_cross_val_score, 
+                 mean_cross_val_score + 2 * std_cross_val_score, 
+                 color='green', 
+                 label='область между ошибками',
+                 alpha=0.5)
+legend_box = plt.legend(framealpha=1).get_frame()
+legend_box.set_facecolor("white")
+legend_box.set_edgecolor("black")
+plt.xlabel('Количество деревьев')
+plt.ylabel('roc-auc')
+
+plt.show()
+```
