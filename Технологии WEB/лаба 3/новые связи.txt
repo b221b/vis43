@@ -1,0 +1,776 @@
+я изменил связи в бд, теперь в модели sorevnovaniya.php, вместо связи -
+```
+public function getPrizer()
+    {
+        return $this->hasOne(Prizer::class, ['id' => 'id_prizer']);
+    }
+```
+будет связь в sportsmenprizer.php:
+```
+public function getPrizer2()
+    {
+        return $this->hasOne(Sorevnovaniya::class, ['id_prizer' => 'id_sorevnovaniya']);
+    }
+```
+
+мне нужно изменить следующие файлы что бы все стало работать, теперь у меня поле id_prizer из sorenvnovaniya 
+ссылается на новое поле id_sorevnovaniya в prizer, для соответствующих записей в этой таблице есть 
+поля id_sportsmen которое отвечает за спортсмена занявшем призовое место, и поле id_prizer которое 
+отвечает за призовое место которое занял спортсмен.
+
+SorevnovaniyaController.php:
+```
+<?php
+
+namespace app\controllers;
+
+use yii\web\Controller;
+use yii\data\Pagination;
+use app\models\Sorevnovaniya;
+
+class SorevnovaniyaController extends Controller
+{
+    public function actionIndex()
+    {
+        $query = Sorevnovaniya::find()
+            ->with(['structure', 'vidSporta', 'prizer']);
+
+        $sorevnovaniya = $query->orderBy('name')
+            ->all();
+
+        return $this->render('index', [
+            'sorevnovaniya' => $sorevnovaniya,
+        ]);
+    }
+}
+```
+index.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\LinkPager;
+
+$this->title = 'Sorev';
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<link rel="stylesheet" href="../../web/css/sorev.css">
+
+<h1>Соревнования</h1>
+
+<table>
+    <tr>
+        <th>Название</th>
+        <th>Дата проведения</th>
+        <th>Структура</th>
+        <th>Вид спорта</th>
+        <th>Призер</th>
+    </tr>
+    <?php foreach ($sorevnovaniya as $sorevnovanie): ?>
+        <tr>
+            <td><?= Html::encode($sorevnovanie->name) ?></td>
+            <td><?= Html::encode($sorevnovanie->data_provedeniya) ?></td>
+            <td><?= $sorevnovanie->structure->name ?></td>
+            <td><?= $sorevnovanie->vidSporta->name ?></td>
+            <!-- <td><?= $sorevnovanie->prizer->nagrada ?></td> -->
+
+            <td>
+                <?php
+                $sportsmen = $sorevnovanie->getSportsmenSorevnovaniyas()->one();
+                if ($sportsmen) {
+                    echo $sportsmen->sportsmen->name;
+                } else {
+                    echo '-';
+                }
+                ?>
+            </td>
+
+        </tr>
+    <?php endforeach; ?>
+</table>
+```
+
+------------------
+
+теперь мне нужно внести те же изменения но в модель этой таблицы с crud интерфейсом:
+
+SorevnovaniyaCRUDController.php:
+```
+<?php
+
+namespace app\controllers;
+
+use Yii;
+use app\models\Sorevnovaniya;
+use yii\web\Controller;
+use yii\web\NotFoundHttpException;
+use yii\data\ActiveDataProvider;
+use yii\web\Response;
+use yii\widgets\ActiveForm;
+
+class SorevnovaniyaCRUDController extends Controller
+{
+    public function actionIndex()
+    {
+        $dataProvider = new ActiveDataProvider([
+            'query' => Sorevnovaniya::find()->with(['structure', 'vidSporta', 'prizer']),
+        ]);
+
+        return $this->render('index', [
+            'dataProvider' => $dataProvider,
+        ]);
+    }
+
+    public function actionCreate()
+    {
+        $model = new Sorevnovaniya();
+
+        if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            // Успешное сохранение
+            return $this->redirect(['sorevnovaniya-c-r-u-d/index']);
+        }
+
+        return $this->render('create', [
+            'model' => $model,
+        ]);
+    }
+
+    public function actionView($id)
+    {
+        $model = $this->findModel($id);
+        return $this->render('view', [
+            'model' => $model,
+        ]);
+    }
+
+
+    public function actionUpdate($id)
+    {
+        $model = $this->findModel($id);
+
+        if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            return $this->redirect(['index']);
+        }
+
+        return $this->render('update', [
+            'model' => $model,
+        ]);
+    }
+
+    public function actionDelete($id)
+    {
+        $this->findModel($id)->delete();
+
+        return $this->redirect(['index']);
+    }
+
+    protected function findModel($id)
+    {
+        if (($model = Sorevnovaniya::findOne($id)) !== null) {
+            return $model;
+        }
+
+        throw new NotFoundHttpException('The requested page does not exist.');
+    }
+}
+```
+
+index.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\grid\GridView;
+
+$this->title = 'Соревнования CRUD';
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<link rel="stylesheet" href="../../web/css/sorev.css">
+
+<h1><?= Html::encode($this->title) ?></h1>
+
+<p>
+    <?= Html::a('Создать Соревнование', ['create'], ['class' => 'btn btn-success']) ?>
+</p>
+
+<?= GridView::widget([
+    'dataProvider' => $dataProvider,
+    'columns' => [
+        [
+            'attribute' => 'id', // Убедитесь, что 'id' существует в модели Sorevnovaniya
+            'label' => 'ID', // Заголовок столбца
+        ],
+        'name',
+        'data_provedeniya',
+        [
+            'attribute' => 'structure.name',
+            'label' => 'Структура',
+        ],
+        [
+            'attribute' => 'vidSporta.name',
+            'label' => 'Вид спорта',
+        ],
+        [
+            'label' => 'Призер',
+            'value' => function ($model) {
+                $sportsmen = $model->getSportsmenSorevnovaniyas()->one();
+                return $sportsmen ? $sportsmen->sportsmen->name : '-';
+            },
+        ],
+        [
+            'class' => 'yii\grid\ActionColumn',
+            'header' => 'Действия',
+            'template' => '{view} {update} {delete}',
+            'buttons' => [
+                // 'view' => function ($url) {
+                //     return Html::a('Просмотр', $url, [
+                //         'class' => 'btn btn-success', 
+                //         'title' => 'Просмотр',
+                //         'aria-label' => 'Просмотр',
+                //         'data-pjax' => '0', 
+                //     ]);
+                // },
+                // 'update' => function ($url) {
+                //     return Html::a('Изменить', $url, [
+                //         'class' => 'btn btn-warning', 
+                //         'title' => 'Изменить',
+                //         'aria-label' => 'Изменить',
+                //         'data-pjax' => '0', 
+                //     ]);
+                // },
+                // 'delete' => function ($url) {
+                //     return Html::a('Удалить', $url, [
+                //         'class' => 'btn btn-danger', 
+                //         'title' => 'Удалить',
+                //         'aria-label' => 'Удалить',
+                // 'data-confirm' => 'Вы уверены, что хотите удалить этот элемент?',
+                //         'data-method' => 'post',
+                //         'data-pjax' => '0', 
+                // ]);
+                // },
+            ],
+        ],
+    ],
+]); ?>
+```
+
+view.php:
+```
+<?php
+
+use yii\helpers\Html;
+
+/* @var $this yii\web\View */
+/* @var $model app\models\Sorevnovaniya */
+
+$this->title = $model->name;
+$this->params['breadcrumbs'][] = ['label' => 'Соревнования', 'url' => ['index']];
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<h1><?= Html::encode($this->title) ?></h1>
+
+<p>
+    <?= Html::a('Изменить', ['update', 'id' => $model->id], ['class' => 'btn btn-primary']) ?>
+    <?= Html::a('Удалить', ['delete', 'id' => $model->id], [
+        'class' => 'btn btn-danger',
+        'data' => [
+            'confirm' => 'Вы уверены, что хотите удалить этот элемент?',
+            'method' => 'post',
+        ],
+    ]) ?>
+</p>
+
+<div>
+    <strong>ID:</strong> <?= Html::encode($model->id) ?><br>
+    <strong>Название:</strong> <?= Html::encode($model->name) ?><br>
+    <strong>Дата проведения:</strong> <?= Html::encode($model->data_provedeniya) ?><br>
+    <strong>Структура:</strong> <?= Html::encode($model->structure->name) ?><br>
+    <strong>Вид спорта:</strong> <?= Html::encode($model->vidSporta->name) ?><br>
+    <strong>Призер:</strong> <?= Html::encode($model->prizer->name ?? '-') ?><br>
+</div>
+```
+
+create.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+use app\models\Structure;
+use app\models\VidSporta;
+use app\models\Prizer;
+
+$this->title = 'Создать Соревнование';
+$this->params['breadcrumbs'][] = ['label' => 'Соревнования', 'url' => ['index']];
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<h1><?= Html::encode($this->title) ?></h1>
+
+<div class="sorevnovaniya-create">
+
+    <div class="sorevnovaniya-form">
+
+        <?php $form = ActiveForm::begin(); ?>
+
+        <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
+        <?= $form->field($model, 'data_provedeniya')->textInput(['type' => 'date']) ?>
+        
+        <?= $form->field($model, 'id_structure')->dropDownList(
+            Structure::find()->select(['name', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите структуру']
+        ) ?>
+        
+        <?= $form->field($model, 'id_vid_sporta')->dropDownList(
+            VidSporta::find()->select(['name', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите вид спорта']
+        ) ?>
+        
+        <?= $form->field($model, 'id_prizer')->dropDownList(
+            Prizer::find()->select(['nagrada', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите призера']
+        ) ?>
+
+        <div class="form-group">
+            <?= Html::submitButton('Сохранить', ['class' => 'btn btn-success']) ?>
+        </div>
+
+        <?php ActiveForm::end(); ?>
+
+    </div>
+</div>
+
+```
+
+update.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+use app\models\Structure;
+use app\models\VidSporta;
+use app\models\Prizer;
+
+$this->title = 'Изменить Соревнование: ' . $model->name;
+$this->params['breadcrumbs'][] = ['label' => 'Соревнования', 'url' => ['index']];
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<h1><?= Html::encode($this->title) ?></h1>
+
+<div class="sorevnovaniya-update">
+
+    <div class="sorevnovaniya-form">
+
+        <?php $form = ActiveForm::begin(); ?>
+
+        <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
+        <?= $form->field($model, 'data_provedeniya')->textInput(['type' => 'date']) ?>
+
+        <?= $form->field($model, 'id_structure')->dropDownList(
+            Structure::find()->select(['name', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите структуру']
+        ) ?>
+
+        <?= $form->field($model, 'id_vid_sporta')->dropDownList(
+            VidSporta::find()->select(['name', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите вид спорта']
+        ) ?>
+
+        <?= $form->field($model, 'id_prizer')->dropDownList(
+            Prizer::find()->select(['nagrada', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите призера']
+        ) ?>
+
+        <div class="form-group">
+            <?= Html::submitButton('Сохранить', ['class' => 'btn btn-success']) ?>
+        </div>
+
+        <?php ActiveForm::end(); ?>
+
+    </div>
+</div>
+```
+
+------------------------------------------------
+
+я в create и update формах в поле id_prizer вижу такой список:
+
+Id Prizer
+Выберите призеров
+Золотая медаль
+Серебряная медаль
+Бронзовая медаль
+
+было бы хорошо что бы я мог нажимать на эти медали и выбирать для определенной медал
+
+--------------------------------------------
+
+Id Prizer cannot be blank.
+
+кароче, сделай так, что бы еще было поле id_prizer из sorevnovaniya в форме для заполнения данных
+
+create.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+use app\models\Structure;
+use app\models\VidSporta;
+use app\models\Prizer;
+use app\models\Sportsmen;
+
+$this->title = 'Создать Соревнование';
+$this->params['breadcrumbs'][] = ['label' => 'Соревнования', 'url' => ['index']];
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<h1><?= Html::encode($this->title) ?></h1>
+
+<div class="sorevnovaniya-create">
+
+    <div class="sorevnovaniya-form">
+
+    <?php if ($model->hasErrors()): ?>
+    <div class="alert alert-danger">
+        <strong>Ошибка!</strong> Пожалуйста, исправьте следующие ошибки:
+        <ul>
+            <?php foreach ($model->getErrors() as $errors): ?>
+                <?php foreach ($errors as $error): ?>
+                    <li><?= Html::encode($error) ?></li>
+                <?php endforeach; ?>
+            <?php endforeach; ?>
+        </ul>
+    </div>
+<?php endif; ?>
+
+        <?php $form = ActiveForm::begin(); ?>
+
+        <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
+        <?= $form->field($model, 'data_provedeniya')->textInput(['type' => 'date']) ?>
+
+        <?= $form->field($model, 'id_structure')->dropDownList(
+            Structure::find()->select(['name', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите структуру']
+        ) ?>
+
+        <?= $form->field($model, 'id_vid_sporta')->dropDownList(
+            VidSporta::find()->select(['name', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите вид спорта']
+        ) ?>
+
+        <div id="prizer-container">
+            <h3>Призеры</h3>
+            <?php foreach (Prizer::find()->all() as $prizer): ?>
+                <div class="prizer-group">
+                    <label><?= Html::encode($prizer->nagrada) ?></label>
+                    <?= Html::dropDownList(
+                        "prizer[{$prizer->id}]",
+                        null,
+                        Sportsmen::find()->select(['name', 'id'])->indexBy('id')->column(),
+                        ['prompt' => 'Выберите спортсмена']
+                    ); ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+        <div class="form-group">
+            <?= Html::submitButton('Сохранить', ['class' => 'btn btn-success']) ?>
+        </div>
+
+        <?php ActiveForm::end(); ?>
+
+    </div>
+</div>
+```
+
+----------------------------
+
+сделай поле id_prizer числовым полем а не выпадающим списком.
+в create.php сделай в поле id число, которое может потенциально быть у новой записи, для этого возьми id последней существубщей записи в таблице sorevnovaniya
+
+create.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+use app\models\Structure;
+use app\models\VidSporta;
+use app\models\Prizer;
+use app\models\Sportsmen;
+
+$this->title = 'Создать Соревнование';
+$this->params['breadcrumbs'][] = ['label' => 'Соревнования', 'url' => ['index']];
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<h1><?= Html::encode($this->title) ?></h1>
+
+<div class="sorevnovaniya-create">
+
+    <div class="sorevnovaniya-form">
+
+        <?php if ($model->hasErrors()): ?>
+            <div class="alert alert-danger">
+                <strong>Ошибка!</strong> Пожалуйста, исправьте следующие ошибки:
+                <ul>
+                    <?php foreach ($model->getErrors() as $errors): ?>
+                        <?php foreach ($errors as $error): ?>
+                            <li><?= Html::encode($error) ?></li>
+                        <?php endforeach; ?>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <?php $form = ActiveForm::begin(); ?>
+
+        <!-- Поле для отображения ID -->
+        <div class="form-group">
+            <label>ID:</label>
+            <p class="form-control-static"><?= Html::encode($model->id) ?></p>
+        </div>
+
+        <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
+        <?= $form->field($model, 'data_provedeniya')->textInput(['type' => 'date']) ?>
+
+        <?= $form->field($model, 'id_structure')->dropDownList(
+            Structure::find()->select(['name', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите структуру']
+        ) ?>
+
+        <?= $form->field($model, 'id_vid_sporta')->dropDownList(
+            VidSporta::find()->select(['name', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите вид спорта']
+        ) ?>
+
+        <?= $form->field($model, 'id_prizer')->dropDownList(
+            Prizer::find()->select(['nagrada', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите призера']
+        ) ?>
+
+        <div id="prizer-container">
+            <h3>Призеры</h3>
+            <?php foreach (Prizer::find()->all() as $prizer): ?>
+                <div class="prizer-group">
+                    <label><?= Html::encode($prizer->nagrada) ?></label>
+                    <?= Html::dropDownList(
+                        "prizer[{$prizer->id}]",
+                        null,
+                        Sportsmen::find()->select(['name', 'id'])->indexBy('id')->column(),
+                        ['prompt' => 'Выберите спортсмена']
+                    ); ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+        <div class="form-group">
+            <?= Html::submitButton('Сохранить', ['class' => 'btn btn-success']) ?>
+        </div>
+
+        <?php ActiveForm::end(); ?>
+
+    </div>
+</div>
+```
+
+update.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+use app\models\Structure;
+use app\models\VidSporta;
+use app\models\Sportsmen;
+use app\models\Prizer;
+
+$this->title = 'Изменить Соревнование: ' . $model->name;
+$this->params['breadcrumbs'][] = ['label' => 'Соревнования', 'url' => ['index']];
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<h1><?= Html::encode($this->title) ?></h1>
+
+<div class="sorevnovaniya-update">
+
+    <div class="sorevnovaniya-form">
+
+        <?php if ($model->hasErrors()): ?>
+            <div class="alert alert-danger">
+                <strong>Ошибка!</strong> Пожалуйста, исправьте следующие ошибки:
+                <ul>
+                    <?php foreach ($model->getErrors() as $errors): ?>
+                        <?php foreach ($errors as $error): ?>
+                            <li><?= Html::encode($error) ?></li>
+                        <?php endforeach; ?>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <?php $form = ActiveForm::begin(); ?>
+
+        <!-- Поле для отображения ID -->
+        <div class="form-group">
+            <label>ID:</label>
+            <p class="form-control-static"><?= Html::encode($model->id) ?></p>
+        </div>
+
+        <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
+        <?= $form->field($model, 'data_provedeniya')->textInput(['type' => 'date']) ?>
+
+        <?= $form->field($model, 'id_structure')->dropDownList(
+            Structure::find()->select(['name', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите структуру']
+        ) ?>
+
+        <?= $form->field($model, 'id_vid_sporta')->dropDownList(
+            VidSporta::find()->select(['name', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите вид спорта']
+        ) ?>
+
+        <?= $form->field($model, 'id_prizer')->dropDownList(
+            Prizer::find()->select(['nagrada', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите призера']
+        ) ?>
+
+        <div id="prizer-container">
+            <h3>Призеры</h3>
+            <?php foreach (Prizer::find()->all() as $prizer): ?>
+                <div class="prizer-group">
+                    <label><?= Html::encode($prizer->nagrada) ?></label>
+                    <?= Html::dropDownList(
+                        "prizer[{$prizer->id}]",
+                        null,
+                        Sportsmen::find()->select(['name', 'id'])->indexBy('id')->column(),
+                        ['prompt' => 'Выберите спортсмена']
+                    ); ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+        <div class="form-group">
+            <?= Html::submitButton('Сохранить', ['class' => 'btn btn-success']) ?>
+        </div>
+
+        <?php ActiveForm::end(); ?>
+
+    </div>
+</div>
+```
+
+--------------------------------------------
+
+сделай так, что бы при удалении записи из sorevnovaniya, вместе с ней удалялась и запись из таблицы sportsmen_prizer с тем же числом в поле id_sorevnovaniya, что и та запись которую мы удалили из sorevnovaniya
+
+SorevnovaniyaCRUDController.php:
+```
+<?php
+
+namespace app\controllers;
+
+use Yii;
+use app\models\Sorevnovaniya;
+use app\models\SportsmenPrizer;
+use yii\web\Controller;
+use yii\web\NotFoundHttpException;
+use yii\data\ActiveDataProvider;
+use yii\web\Response;
+use yii\widgets\ActiveForm;
+
+class SorevnovaniyaCRUDController extends Controller
+{
+    public function actionIndex()
+    {
+        $dataProvider = new ActiveDataProvider([
+            'query' => Sorevnovaniya::find()->with(['structure', 'vidSporta', 'sportsmenPrizers.sportsmen']), // Обновлено
+        ]);
+
+        return $this->render('index', [
+            'dataProvider' => $dataProvider,
+        ]);
+    }
+
+    public function actionCreate()
+    {
+        $model = new Sorevnovaniya();
+
+        if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            // Сохранение связи спортсменов и призов
+            $prizers = Yii::$app->request->post('prizer', []);
+            foreach ($prizers as $prizerId => $sportsmanId) {
+                if ($sportsmanId) {
+                    $sportsmenPrizer = new SportsmenPrizer();
+                    $sportsmenPrizer->id_sorevnovaniya = $model->id; // Используйте ID сохраненной записи
+                    $sportsmenPrizer->id_prizer = $prizerId;
+                    $sportsmenPrizer->id_sportsmen = $sportsmanId;
+                    $sportsmenPrizer->save(); // Проверьте, сохраняется ли эта запись
+                }
+            }
+            return $this->redirect(['index']);
+        }
+
+        // Если данные не прошли валидацию, отобразите форму с ошибками
+        return $this->render('create', [
+            'model' => $model,
+        ]);
+    }
+
+    public function actionView($id)
+    {
+        $model = $this->findModel($id);
+        return $this->render('view', [
+            'model' => $model,
+        ]);
+    }
+
+    public function actionUpdate($id)
+    {
+        $model = $this->findModel($id);
+
+        if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            // Обновление связи спортсменов и призов
+            $prizers = Yii::$app->request->post('prizer', []);
+            // Очистка старых записей
+            SportsmenPrizer::deleteAll(['id_sorevnovaniya' => $model->id]);
+            foreach ($prizers as $prizerId => $sportsmanId) {
+                if ($sportsmanId) {
+                    $sportsmenPrizer = new SportsmenPrizer();
+                    $sportsmenPrizer->id_sorevnovaniya = $model->id;
+                    $sportsmenPrizer->id_prizer = $prizerId;
+                    $sportsmenPrizer->id_sportsmen = $sportsmanId;
+                    $sportsmenPrizer->save();
+                }
+            }
+            return $this->redirect(['index']);
+        }
+
+        return $this->render('update', [
+            'model' => $model,
+        ]);
+    }
+
+    public function actionDelete($id)
+    {
+        $this->findModel($id)->delete();
+
+        return $this->redirect(['index']);
+    }
+
+    protected function findModel($id)
+    {
+        if (($model = Sorevnovaniya::findOne($id)) !== null) {
+            return $model;
+        }
+
+        throw new NotFoundHttpException('The requested page does not exist.');
+    }
+}
+```

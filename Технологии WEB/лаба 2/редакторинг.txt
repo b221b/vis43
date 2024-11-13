@@ -1,0 +1,122 @@
+сделай так, что бы если у одного спортсмена несколько тренеров, то записи не повторялись и тренеры писались через запятую
+
+TrenersSportsmensController.php:
+```
+<?php
+
+namespace app\controllers;
+
+use Yii;
+use yii\web\Controller;
+use app\models\Sportsmen;
+use app\models\Treners;
+use app\models\SportsmenTreners;
+use yii\data\ArrayDataProvider;
+
+class TrenersSportsmensController extends Controller
+{
+    public function actionIndex()
+    {
+        $model = new Sportsmen();
+        $selectedSportsmanId = null;
+        $trenersDataProvider = null;
+
+        // Получаем всех спортсменов для выпадающего списка
+        $sportsmenList = Sportsmen::find()->all();
+
+        // Запрос на получение всех тренеров
+        $allTrenersData = (new \yii\db\Query())
+            ->select(['t.name AS trener_name', 's.name AS sportsman_name'])
+            ->from('sportsmen AS s')
+            ->innerJoin('sportsmen_treners AS st', 's.id = st.id_sportsmen')
+            ->innerJoin('treners AS t', 't.id = st.id_treners')
+            ->all();
+
+        // Создаем DataProvider для отображения всех тренеров
+        $trenersDataProvider = new ArrayDataProvider([
+            'allModels' => $allTrenersData,
+            'pagination' => false,
+        ]);
+
+        // Обработка формы
+        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
+            $selectedSportsmanId = $model->id;
+
+            // Запрос на получение тренеров для выбранного спортсмена
+            $trenersData = (new \yii\db\Query())
+                ->select(['t.name AS trener_name', 's.name AS sportsman_name'])
+                ->from('sportsmen AS s')
+                ->innerJoin('sportsmen_treners AS st', 's.id = st.id_sportsmen')
+                ->innerJoin('treners AS t', 't.id = st.id_treners')
+                ->where(['s.id' => $selectedSportsmanId])
+                ->all();
+
+            // Создаем DataProvider для отображения тренеров
+            $trenersDataProvider = new ArrayDataProvider([
+                'allModels' => $trenersData,
+                'pagination' => false,
+            ]);
+        }
+
+        return $this->render('index', [
+            'model' => $model,
+            'sportsmenList' => $sportsmenList,
+            'trenersDataProvider' => $trenersDataProvider,
+            'selectedSportsmanId' => $selectedSportsmanId,
+        ]);
+    }
+}
+```
+
+index.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+
+$this->title = 'Список тренеров спортсмена';
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<h1><?= Html::encode($this->title) ?></h1>
+
+<div class="sportsmen-treners-form">
+
+    <?php $form = ActiveForm::begin(); ?>
+
+    <?= $form->field($model, 'id')->dropDownList(
+        \yii\helpers\ArrayHelper::map($sportsmenList, 'id', 'name'),
+        ['prompt' => 'Выберите спортсмена']
+    ) ?>
+
+    <div class="form-group">
+        <?= Html::submitButton('Показать тренеров', ['class' => 'btn btn-primary']) ?>
+        <?= Html::a('Показать всех спортсменов', ['index'], ['class' => 'btn btn-default']) ?>
+    </div>
+
+    <?php ActiveForm::end(); ?>
+
+</div>
+
+<h2>Тренеры для выбранного спортсмена:</h2>
+
+<?php if ($trenersDataProvider && count($trenersDataProvider->models) > 0): ?>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Имя спортсмена</th>
+                <th>Имя тренера</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($trenersDataProvider->models as $trener): ?>
+                <tr>
+                    <td><?= Html::encode($trener['sportsman_name']) ?></td>
+                    <td><?= Html::encode($trener['trener_name']) ?></td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+<?php endif; ?>
+```

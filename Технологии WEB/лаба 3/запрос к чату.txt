@@ -1,0 +1,301 @@
+я работаю с php, с фрейворком yii2, вот мое задание:
+для таблицы в следующем файле сделать crud интерфейс.
+
+сделай все операции create, read, update, delete в одном файле, а не в нескольких.
+представление пусть будет в единственном файле index.php, без лишних файлов по типу Results.php и тд.
+
+у меня есть контроллер SorevnovaniyaController.php и представление Index.php для которых и нужно сделать CRUD интерфейс, но в другом файле, пусть он будет называтсься SorevnovaniyaCRUDController:
+таблица с данными этого контроллера, это не одна таблица, 'structure', 'vidSporta', 'prizer', это поля из других таблиц у которых связь с таблицей sorevnovaniya.
+
+сделай операции CRUD при помощи виджетов, должны быть иконки карандаша для изменения записи, корзина для удаления и глаз для просмотра записи.
+сделай все при помощи gridview
+
+SorevnovaniyaController.php:
+```
+<?php
+
+namespace app\controllers;
+
+use yii\web\Controller;
+use yii\data\Pagination;
+use app\models\Sorevnovaniya;
+
+class SorevnovaniyaController extends Controller
+{
+    public function actionIndex()
+    {
+        $query = Sorevnovaniya::find()
+            ->with(['structure', 'vidSporta', 'prizer']);
+
+        $sorevnovaniya = $query->orderBy('name')
+            ->all();
+
+        return $this->render('index', [
+            'sorevnovaniya' => $sorevnovaniya,
+        ]);
+    }
+}
+
+```
+
+index.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\LinkPager;
+
+$this->title = 'Sorev';
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<link rel="stylesheet" href="../../web/css/sorev.css">
+
+<h1>Соревнования</h1>
+
+<table>
+    <tr>
+        <th>Название</th>
+        <th>Дата проведения</th>
+        <th>Структура</th>
+        <th>Вид спорта</th>
+        <th>Призер</th>
+    </tr>
+    <?php foreach ($sorevnovaniya as $sorevnovanie): ?>
+        <tr>
+            <td><?= Html::encode($sorevnovanie->name) ?></td>
+            <td><?= Html::encode($sorevnovanie->data_provedeniya) ?></td>
+            <td><?= $sorevnovanie->structure->name ?></td>
+            <td><?= $sorevnovanie->vidSporta->name ?></td>
+            <!-- <td><?= $sorevnovanie->prizer->nagrada ?></td> -->
+
+            <td>
+                <?php
+                $sportsmen = $sorevnovanie->getSportsmenSorevnovaniyas()->one();
+                if ($sportsmen) {
+                    echo $sportsmen->sportsmen->name;
+                } else {
+                    echo '-';
+                }
+                ?>
+            </td>
+
+        </tr>
+    <?php endforeach; ?>
+</table>
+```
+
+так же у меня есть модель sorevnovaniya.php:
+```
+<?php
+
+namespace app\models;
+
+use yii\db\ActiveRecord;
+
+class Sorevnovaniya extends ActiveRecord
+{
+    public static function tableName()
+    {
+        return 'sorevnovaniya';
+    }
+
+    public function getOrgSorevnovaniyas()
+    {
+        return $this->hasMany(OrgSorevnovaniya::class, ['id_sorevnovaniya' => 'id']);
+    }
+
+    public function getPrizer()
+    {
+        return $this->hasOne(Prizer::class, ['id' => 'id_prizer']);
+    }
+
+    public function getStructure()
+    {
+        return $this->hasOne(Structure::class, ['id' => 'id_structure']);
+    }
+
+    public function getVidSporta()
+    {
+        return $this->hasOne(VidSporta::class, ['id' => 'id_vid_sporta']);
+    }
+
+    public function getSportsmenSorevnovaniyas()
+    {
+        return $this->hasMany(SportsmenSorevnovaniya::class, ['id_sorevnovaniya' => 'id']);
+    }
+
+    // Правила валидации
+    public function rules()
+    {
+        return [
+            [['id_structure', 'id_vid_sporta'], 'safe'],
+            [['id_structure', 'id_vid_sporta'], 'integer'],
+        ];
+    }
+
+    public function attributeLabels()
+    {
+        return [
+            'id_structure' => 'Структура',
+            'id_vid_sporta' => 'Вид спорта',
+        ];
+    }
+}
+
+```
+
+вот моя бд:
+```
+-- База данных: sportOrg
+
+-- Структура таблицы org
+CREATE TABLE `org` (
+  `id` int NOT NULL,
+  `fio` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы org_sorevnovaniya
+CREATE TABLE `org_sorevnovaniya` (
+  `id` int NOT NULL,
+  `id_org` int NOT NULL,
+  `id_sorevnovaniya` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы prizer
+CREATE TABLE `prizer` (
+  `id` int NOT NULL,
+  `mesto` int NOT NULL,
+  `nagrada` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sorevnovaniya
+CREATE TABLE `sorevnovaniya` (
+  `id` int NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `id_structure` int NOT NULL,
+  `id_vid_sporta` int NOT NULL,
+  `data_provedeniya` date NOT NULL,
+  `id_prizer` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sportsmen
+CREATE TABLE `sportsmen` (
+  `id` int NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `razryad` int NOT NULL,
+  `id_sport_club` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы `sportsmen_prizer`
+
+CREATE TABLE `sportsmen_prizer` (
+  `id` int NOT NULL,
+  `id_sportsmen` int NOT NULL,
+  `id_prizer` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sportsmen_sorevnovaniya
+CREATE TABLE `sportsmen_sorevnovaniya` (
+  `id` int NOT NULL,
+  `id_sportsmen` int NOT NULL,
+  `id_sorevnovaniya` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sportsmen_treners
+CREATE TABLE `sportsmen_treners` (
+  `id` int NOT NULL,
+  `id_sportsmen` int NOT NULL,
+  `id_treners` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sportsmen_vidSporta
+CREATE TABLE `sportsmen_vidSporta` (
+  `id` int NOT NULL,
+  `id_sportsmen` int NOT NULL,
+  `id_vid_sporta` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы sport_club
+CREATE TABLE `sport_club` (
+  `id` int NOT NULL,
+  `name` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы structure
+CREATE TABLE `structure` (
+  `id` int NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы structure_chars
+CREATE TABLE `structure_chars` (
+  `id` int NOT NULL,
+  `id_structure` int NOT NULL,
+  `vmestimost` int DEFAULT NULL,
+  `tip_pokritiya` varchar(255) DEFAULT NULL,
+  `kolvo_oborydovaniya` int DEFAULT NULL,
+  `kolvo_tribun` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы treners
+CREATE TABLE `treners` (
+  `id` int NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Структура таблицы vid_sporta
+CREATE TABLE `vid_sporta` (
+  `id` int NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `id_treners` int NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Связи
+
+-- Ограничения внешнего ключа сохраненных таблиц
+
+-- Ограничения внешнего ключа таблицы `org_sorevnovaniya`
+ALTER TABLE `org_sorevnovaniya`
+  ADD CONSTRAINT `org_sorevnovaniya_ibfk_1` FOREIGN KEY (`id_org`) REFERENCES `org` (`id`),
+  ADD CONSTRAINT `org_sorevnovaniya_ibfk_2` FOREIGN KEY (`id_sorevnovaniya`) REFERENCES `sorevnovaniya` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sorevnovaniya`
+ALTER TABLE `sorevnovaniya`
+  ADD CONSTRAINT `sorevnovaniya_ibfk_1` FOREIGN KEY (`id_structure`) REFERENCES `structure` (`id`),
+  ADD CONSTRAINT `sorevnovaniya_ibfk_2` FOREIGN KEY (`id_vid_sporta`) REFERENCES `vid_sporta` (`id`),
+  ADD CONSTRAINT `sorevnovaniya_ibfk_4` FOREIGN KEY (`id_prizer`) REFERENCES `prizer` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sportsmen`
+ALTER TABLE `sportsmen`
+  ADD CONSTRAINT `sportsmen_ibfk_1` FOREIGN KEY (`id_sport_club`) REFERENCES `sport_club` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sportsmen_prizer`
+ALTER TABLE `sportsmen_prizer`
+  ADD CONSTRAINT `sportsmen_prizer_ibfk_1` FOREIGN KEY (`id_sportsmen`) REFERENCES `sportsmen` (`id`),
+  ADD CONSTRAINT `sportsmen_prizer_ibfk_2` FOREIGN KEY (`id_prizer`) REFERENCES `prizer` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sportsmen_sorevnovaniya`
+ALTER TABLE `sportsmen_sorevnovaniya`
+  ADD CONSTRAINT `sportsmen_sorevnovaniya_ibfk_2` FOREIGN KEY (`id_sportsmen`) REFERENCES `sportsmen` (`id`),
+  ADD CONSTRAINT `sportsmen_sorevnovaniya_ibfk_3` FOREIGN KEY (`id_sorevnovaniya`) REFERENCES `sorevnovaniya` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sportsmen_treners`
+ALTER TABLE `sportsmen_treners`
+  ADD CONSTRAINT `sportsmen_treners_ibfk_1` FOREIGN KEY (`id_sportsmen`) REFERENCES `sportsmen` (`id`),
+  ADD CONSTRAINT `sportsmen_treners_ibfk_2` FOREIGN KEY (`id_treners`) REFERENCES `treners` (`id`);
+
+-- Ограничения внешнего ключа таблицы `sportsmen_vidSporta`
+ALTER TABLE `sportsmen_vidSporta`
+  ADD CONSTRAINT `sportsmen_vidsporta_ibfk_1` FOREIGN KEY (`id_sportsmen`) REFERENCES `sportsmen` (`id`),
+  ADD CONSTRAINT `sportsmen_vidsporta_ibfk_2` FOREIGN KEY (`id_vid_sporta`) REFERENCES `vid_sporta` (`id`);
+
+-- Ограничения внешнего ключа таблицы `structure_chars`
+ALTER TABLE `structure_chars`
+  ADD CONSTRAINT `structure_chars_ibfk_1` FOREIGN KEY (`id_structure`) REFERENCES `structure` (`id`);
+
+-- Ограничения внешнего ключа таблицы `vid_sporta`
+ALTER TABLE `vid_sporta`
+  ADD CONSTRAINT `vid_sporta_ibfk_1` FOREIGN KEY (`id_treners`) REFERENCES `treners` (`id`);
+COMMIT;
+```
