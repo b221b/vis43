@@ -1,0 +1,73 @@
+вот мои данные, мне нужно что бы ты построил по ним диаграмму рассеивания с 
+гиперплоскостью SVM, внизу приведен пример на основе которого нужно построить диаграмму
+
+```
+Index(['Id', 'age', 'years_of_experience', 'lesson_price', 'qualification',
+       'physics', 'chemistry', 'biology', 'english', 'geography', 'history',
+       'mean_exam_points'],
+      dtype='object')
+   Id   age  years_of_experience  lesson_price  qualification physics  \
+0   0  40.0                  0.0        1400.0            1.0     Yes   
+1   1  48.0                  4.0        2850.0            3.0     Yes   
+2   2  39.0                  0.0        1200.0            1.0      No   
+3   3  46.0                  5.0        1400.0            1.0      No   
+4   4  43.0                  1.0        1500.0            1.0      No   
+
+  chemistry biology english geography history  mean_exam_points  
+0        No      No      No       Yes      No              63.0  
+1        No      No      No        No      No              86.0  
+2        No      No      No        No      No              53.0  
+3        No      No      No        No      No              56.0  
+4        No      No      No        No      No              59.0  
+
+Лучший параметр C для SVM: {'C': 100}
+Точность на тестовой выборке: 0.5798750403990269
+
+MSE SVM: 75.60166618864659
+```
+
+пример:
+```
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn import datasets
+from sklearn.svm import SVC
+from sklearn.preprocessing import StandardScaler
+
+# Генерация случайных данных
+X, y = datasets.make_blobs(n_samples=100, centers=2, random_state=6)
+
+# Стандартизация данных
+scaler = StandardScaler()
+X_standardized = scaler.fit_transform(X)
+
+# Обучение модели SVM
+svc = SVC(kernel='linear')
+svc.fit(X_standardized, y)
+
+# Цвета для точек
+colors = ["red" if label == 0 else "blue" for label in y]
+
+# Вывод точек данных на график
+plt.scatter(X_standardized[:, 0], X_standardized[:, 1], c=colors)
+
+# Создание гиперплоскости
+w = svc.coef_[0]
+a = -w[0] / w[1]
+xx = np.linspace(X_standardized[:, 0].min() - 1, X_standardized[:, 0].max() + 1)
+yy = a * xx - (svc.intercept_[0]) / w[1]
+
+# Начертить гиперплоскость
+plt.plot(xx, yy, color='black', linestyle='--')
+
+# Настройка графика
+plt.title('Диаграмма рассеяния с гиперплоскостью SVM')
+plt.xlabel('Признак 1')
+plt.ylabel('Признак 2')
+plt.xlim(X_standardized[:, 0].min() - 1, X_standardized[:, 0].max() + 1)
+plt.ylim(X_standardized[:, 1].min() - 1, X_standardized[:, 1].max() + 1)
+
+# Показать график
+plt.grid()
+plt.show()
+```
