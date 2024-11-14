@@ -1,0 +1,166 @@
+у меня есть loginForm и представление login для страницы логина на сайте, 
+мне нужно что бы ты мне сделал форму для регистрации на сайте 
+(это значит на странице должны быть поля username и password, пароль обязательно должен хешироваться) 
+на странице для логина ты должен сделать поля ввода с распознованием хеша, потому что пароль в бд хранится 
+с хешем, но пользователь должен ввести свой пароль (захешированный) и попасть на сайт авторизованным
+
+названия файлов для регистрации пусть будут registrationForm и registration
+
+LoginForm.php:
+```
+<?php
+
+namespace app\models;
+
+use Yii;
+use yii\base\Model;
+
+/**
+ * LoginForm is the model behind the login form.
+ *
+ * @property-read User|null $user
+ *
+ */
+class LoginForm extends Model
+{
+    public $username;
+    public $password;
+    public $rememberMe = true;
+
+    private $_user = false;
+
+
+    /**
+     * @return array the validation rules.
+     */
+    public function rules()
+    {
+        return [
+            // username and password are both required
+            [['username', 'password'], 'required'],
+            // rememberMe must be a boolean value
+            ['rememberMe', 'boolean'],
+            // password is validated by validatePassword()
+            ['password', 'validatePassword'],
+        ];
+    }
+
+    /**
+     * Validates the password.
+     * This method serves as the inline validation for password.
+     *
+     * @param string $attribute the attribute currently being validated
+     * @param array $params the additional name-value pairs given in the rule
+     */
+    public function validatePassword($attribute, $params)
+    {
+        if (!$this->hasErrors()) {
+            $user = $this->getUser();
+
+            if (!$user || !$user->validatePassword($this->password)) {
+                $this->addError($attribute, 'Incorrect username or password.');
+            }
+        }
+    }
+
+    /**
+     * Logs in a user using the provided username and password.
+     * @return bool whether the user is logged in successfully
+     */
+    // public function login()
+    // {
+    //     if ($this->validate()) {
+    //         return Yii::$app->user->login($this->getUser(), $this->rememberMe ? 3600 * 24 * 30 : 0);
+    //     }
+    //     return false;
+    // }
+
+    public function login()
+    {
+        if ($this->validate()) {
+            if ($this->rememberMe) {
+                $myuser = $this->getUser();
+                $myuser->actionGenerateAuthKey();
+                $myuser->save();
+            }
+            return Yii::$app->user->login($this->getUser(), $this->rememberMe ? 3600 * 24 * 30 : 0);
+        }
+        return false;
+    }
+
+    /**
+     * Finds user by [[username]]
+     *
+     * @return User|null
+     */
+    public function getUser()
+    {
+        if ($this->_user === false) {
+            $this->_user = User::findByUsername($this->username);
+        }
+
+        return $this->_user;
+    }
+}
+```
+
+login.php:
+```
+<?php
+
+/** @var yii\web\View $this */
+/** @var yii\bootstrap5\ActiveForm $form */
+
+/** @var app\models\LoginForm $model */
+
+use yii\bootstrap5\ActiveForm;
+use yii\bootstrap5\Html;
+
+$this->title = 'Login';
+$this->params['breadcrumbs'][] = $this->title;
+?>
+<div class="site-login">
+    <h1><?= Html::encode($this->title) ?></h1>
+
+    <p>Вы не зарегистрированы? Просто сделайте это:</p>
+
+    <p>Please fill out the following fields to login:</p>
+
+    <div class="row">
+        <div class="col-lg-5">
+
+            <?php $form = ActiveForm::begin([
+                'id' => 'login-form',
+                'fieldConfig' => [
+                    'template' => "{label}\n{input}\n{error}",
+                    'labelOptions' => ['class' => 'col-lg-1 col-form-label mr-lg-3'],
+                    'inputOptions' => ['class' => 'col-lg-3 form-control'],
+                    'errorOptions' => ['class' => 'col-lg-7 invalid-feedback'],
+                ],
+            ]); ?>
+
+            <?= $form->field($model, 'username')->textInput(['autofocus' => true]) ?>
+
+            <?= $form->field($model, 'password')->passwordInput() ?>
+
+            <?= $form->field($model, 'rememberMe')->checkbox([
+                'template' => "<div class=\"custom-control custom-checkbox\">{input} {label}</div>\n<div class=\"col-lg-8\">{error}</div>",
+            ]) ?>
+
+            <div class="form-group">
+                <div>
+                    <?= Html::submitButton('Login', ['class' => 'btn btn-primary', 'name' => 'login-button']) ?>
+                </div>
+            </div>
+
+            <?php ActiveForm::end(); ?>
+
+            <div style="color:#999;">
+                You may login with <strong>admin/admin</strong> or <strong>demo/demo</strong>.<br>
+                To modify the username/password, please check out the code <code>app\models\User::$users</code>.
+            </div>
+
+        </div>
+    </div>
+</div>
+```

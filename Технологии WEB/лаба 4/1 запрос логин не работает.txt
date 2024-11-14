@@ -1,0 +1,390 @@
+в user.php я пытаюсь при авторизации создавать значение для AuthKey в таблице user, но в таблицу и в поле это значение не попадает, поле просто пустое 
+
+LoginForm.php:
+```
+<?php
+
+namespace app\models;
+
+use Yii;
+use yii\base\Model;
+
+/**
+ * LoginForm is the model behind the login form.
+ *
+ * @property-read User|null $user
+ *
+ */
+class LoginForm extends Model
+{
+    public $username;
+    public $password;
+    public $rememberMe = true;
+
+    private $_user = false;
+
+
+    /**
+     * @return array the validation rules.
+     */
+    public function rules()
+    {
+        return [
+            // username and password are both required
+            [['username', 'password'], 'required'],
+            // rememberMe must be a boolean value
+            ['rememberMe', 'boolean'],
+            // password is validated by validatePassword()
+            ['password', 'validatePassword'],
+        ];
+    }
+
+    /**
+     * Validates the password.
+     * This method serves as the inline validation for password.
+     *
+     * @param string $attribute the attribute currently being validated
+     * @param array $params the additional name-value pairs given in the rule
+     */
+    public function validatePassword($attribute, $params)
+    {
+        if (!$this->hasErrors()) {
+            $user = $this->getUser();
+
+            if (!$user || !$user->validatePassword($this->password)) {
+                $this->addError($attribute, 'Incorrect username or password.');
+            }
+        }
+    }
+
+    /**
+     * Logs in a user using the provided username and password.
+     * @return bool whether the user is logged in successfully
+     */
+    // public function login()
+    // {
+    //     if ($this->validate()) {
+    //         return Yii::$app->user->login($this->getUser(), $this->rememberMe ? 3600 * 24 * 30 : 0);
+    //     }
+    //     return false;
+    // }
+
+    public function login()
+    {
+        if ($this->validate()) {
+            if ($this->rememberMe) {
+                $myuser = $this->getUser();
+                $myuser->actionGenerateAuthKey();
+                $myuser->save();
+            }
+            return Yii::$app->user->login($this->getUser(), $this->rememberMe ? 3600 * 24 * 30 : 0);
+        }
+        return false;
+    }
+
+    /**
+     * Finds user by [[username]]
+     *
+     * @return User|null
+     */
+    public function getUser()
+    {
+        if ($this->_user === false) {
+            $this->_user = User::findByUsername($this->username);
+        }
+
+        return $this->_user;
+    }
+}
+```
+login.php:
+```
+<?php
+
+/** @var yii\web\View $this */
+/** @var yii\bootstrap5\ActiveForm $form */
+
+/** @var app\models\LoginForm $model */
+
+use yii\bootstrap5\ActiveForm;
+use yii\bootstrap5\Html;
+
+$this->title = 'Login';
+$this->params['breadcrumbs'][] = $this->title;
+?>
+<div class="site-login">
+    <h1><?= Html::encode($this->title) ?></h1>
+
+    <p>Не зарегистрированы? <?= Html::a('Зарегистрируйтесь здесь', ['site/register']) ?></p>
+
+    <p>Please fill out the following fields to login:</p>
+
+    <div class="row">
+        <div class="col-lg-5">
+
+            <?php $form = ActiveForm::begin([
+                'id' => 'login-form',
+                'fieldConfig' => [
+                    'template' => "{label}\n{input}\n{error}",
+                    'labelOptions' => ['class' => 'col-lg-1 col-form-label mr-lg-3'],
+                    'inputOptions' => ['class' => 'col-lg-3 form-control'],
+                    'errorOptions' => ['class' => 'col-lg-7 invalid-feedback'],
+                ],
+            ]); ?>
+
+            <?= $form->field($model, 'username')->textInput(['autofocus' => true]) ?>
+
+            <?= $form->field($model, 'password')->passwordInput() ?>
+
+            <?= $form->field($model, 'rememberMe')->checkbox([
+                'template' => "<div class=\"custom-control custom-checkbox\">{input} {label}</div>\n<div class=\"col-lg-8\">{error}</div>",
+            ]) ?>
+
+            <div class="form-group">
+                <div>
+                    <?= Html::submitButton('Login', ['class' => 'btn btn-primary', 'name' => 'login-button']) ?>
+                </div>
+            </div>
+
+            <?php ActiveForm::end(); ?>
+
+            <div style="color:#999;">
+                You may login with <strong>admin/admin</strong> or <strong>demo/demo</strong>.<br>
+                To modify the username/password, please check out the code <code>app\models\User::$users</code>.
+            </div>
+
+        </div>
+    </div>
+</div>
+```
+sitecontroller.php:
+```
+<?php
+
+namespace app\controllers;
+
+use Yii;
+use yii\filters\AccessControl;
+use yii\web\Controller;
+use yii\web\Response;
+use yii\filters\VerbFilter;
+use app\models\LoginForm;
+use app\models\ContactForm;
+use app\models\RegistrationForm;
+
+class SiteController extends Controller
+{
+    /**
+     * {@inheritdoc}
+     */
+    public function behaviors()
+    {
+        return [
+            'access' => [
+                'class' => AccessControl::class,
+                'only' => ['logout'],
+                'rules' => [
+                    [
+                        'actions' => ['logout'],
+                        'allow' => true,
+                        'roles' => ['@'],
+                    ],
+                ],
+            ],
+            'verbs' => [
+                'class' => VerbFilter::class,
+                'actions' => [
+                    'logout' => ['post'],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function actions()
+    {
+        return [
+            'error' => [
+                'class' => 'yii\web\ErrorAction',
+            ],
+            'captcha' => [
+                'class' => 'yii\captcha\CaptchaAction',
+                'fixedVerifyCode' => YII_ENV_TEST ? 'testme' : null,
+            ],
+        ];
+    }
+
+    /**
+     * Displays homepage.
+     *
+     * @return string
+     */
+    public function actionIndex()
+    {
+        return $this->render('index');
+    }
+
+    /**
+     * Login action.
+     *
+     * @return Response|string
+     */
+    public function actionLogin()
+    {
+        if (!Yii::$app->user->isGuest) {
+            return $this->goHome();
+        }
+
+        $model = new LoginForm();
+        if ($model->load(Yii::$app->request->post()) && $model->login()) {
+            return $this->goBack();
+        }
+
+        $model->password = '';
+        return $this->render('login', [
+            'model' => $model,
+        ]);
+    }
+
+    /**
+     * Logout action.
+     *
+     * @return Response
+     */
+    public function actionLogout()
+    {
+        Yii::$app->user->logout();
+
+        return $this->goHome();
+    }
+
+    /**
+     * Displays contact page.
+     *
+     * @return Response|string
+     */
+    public function actionContact()
+    {
+        $model = new ContactForm();
+        if ($model->load(Yii::$app->request->post()) && $model->contact(Yii::$app->params['adminEmail'])) {
+            Yii::$app->session->setFlash('contactFormSubmitted');
+
+            return $this->refresh();
+        }
+        return $this->render('contact', [
+            'model' => $model,
+        ]);
+    }
+
+    /**
+     * Displays about page.
+     *
+     * @return string
+     */
+    public function actionAbout()
+    {
+        return $this->render('about');
+    }
+
+    public function actionRegister()
+    {
+        $model = new RegistrationForm();
+
+        if ($model->load(Yii::$app->request->post()) && $model->register()) {
+            // Регистрация прошла успешно
+            Yii::$app->session->setFlash('success', 'Thank you for registering. You can now log in.');
+            return $this->redirect(['site/login']);
+        }
+
+        return $this->render('registration', [
+            'model' => $model,
+        ]);
+    }
+}
+```
+user.php:
+```
+<?php
+
+namespace app\models;
+
+use Yii;
+use yii\db\ActiveRecord;
+
+class User extends ActiveRecord implements \yii\web\IdentityInterface
+{
+    public $password_hash;
+
+    public static function tableName()
+    {
+        return 'user';
+    }
+
+    public static function findIdentity($id)
+    {
+        return static::findOne($id);
+    }
+
+    public static function findIdentityByAccessToken($token, $type = null) {}
+
+    public static function findByUsername($username)
+    {
+        return static::findOne(['username' => $username]);
+    }
+
+    public function getId()
+    {
+        return $this->id;
+    }
+
+    public function getAuthKey()
+    {
+        return $this->authKey;
+    }
+
+    public function validateAuthKey($authKey)
+    {
+        return $this->authKey === $authKey;
+    }
+
+    public function validatePassword($password)
+    {
+        return Yii::$app->security->validatePassword($password, $this->password);
+    }
+
+    public function setPassword($password)
+    {
+        $this->password = Yii::$app->security->generatePasswordHash($password);
+    }
+
+    public function generateAuthKey()
+    {
+        $this->authKey = Yii::$app->security->generateRandomString();
+    }
+
+    // public function actionGenerateHash()
+    // {
+    //     $hash = Yii::$app->getSecurity()->generatePasswordHash('12345');
+    //     echo $hash;
+    // }
+
+    public function actionGenerateAuthKey()
+    {
+        // Генерация случайной строки (authKey)
+        $authKey = Yii::$app->security->generateRandomString();
+        echo $authKey;
+    }
+
+    public function rules()
+    {
+        return [
+            [['username', 'password'], 'required'],
+            [['username'], 'string', 'max' => 255],
+            [['password'], 'string', 'max' => 255],
+            [['username'], 'unique'],
+        ];
+    }
+}
+```

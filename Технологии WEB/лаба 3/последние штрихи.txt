@@ -1,0 +1,555 @@
+я внес изменения в бд, я убрал поле id_prizer из таблицы sorevnovaniya, теперь у меня идет связь от sorevnovaniya, поле id к sportsmen_prizer поле id_sorevnovaniya, мне нужно что бы ты переделал логику запроса в CRUD
+
+SorevnovaniyaCRUDController.php:
+```
+<?php
+
+namespace app\controllers;
+
+use Yii;
+use app\models\Sorevnovaniya;
+use app\models\SportsmenPrizer;
+use yii\web\Controller;
+use yii\web\NotFoundHttpException;
+use yii\data\ActiveDataProvider;
+use yii\web\Response;
+use yii\widgets\ActiveForm;
+
+class SorevnovaniyaCRUDController extends Controller
+{
+    public function actionIndex()
+    {
+        $dataProvider = new ActiveDataProvider([
+            'query' => Sorevnovaniya::find()->with(['structure', 'vidSporta', 'sportsmenPrizers.sportsmen']),
+        ]);
+
+        return $this->render('index', [
+            'dataProvider' => $dataProvider,
+        ]);
+    }
+
+    public function actionView($id)
+    {
+        $model = $this->findModel($id);
+
+        return $this->render('view', [
+            'model' => $model,
+        ]);
+    }
+
+    public function actionCreate()
+    {
+        $model = new Sorevnovaniya();
+
+        if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            // Сохранение связи спортсменов и призов
+            $prizers = Yii::$app->request->post('prizer', []);
+
+            // Проверка на дублирование спортсменов
+            $sportsmanIds = array_filter($prizers); // Убираем пустые значения
+            if (count($sportsmanIds) !== count(array_unique($sportsmanIds))) {
+                $model->addError('prizer', 'Один и тот же спортсмен не может занимать несколько призовых мест.');
+                return $this->render('create', [
+                    'model' => $model,
+                ]);
+            }
+
+            foreach ($prizers as $prizerId => $sportsmanId) {
+                if ($sportsmanId) {
+                    $sportsmenPrizer = new SportsmenPrizer();
+                    $sportsmenPrizer->id_sorevnovaniya = $model->id;
+                    $sportsmenPrizer->id_prizer = $prizerId;
+                    $sportsmenPrizer->id_sportsmen = $sportsmanId;
+                    $sportsmenPrizer->save();
+                }
+            }
+            return $this->redirect(['index']);
+        }
+
+        return $this->render('create', [
+            'model' => $model,
+        ]);
+    }
+
+    public function actionUpdate($id)
+    {
+        $model = $this->findModel($id);
+
+        // Получаем существующих призеров
+        $existingPrizers = SportsmenPrizer::find()->where(['id_sorevnovaniya' => $model->id])->all();
+        $existingPrizersMap = [];
+
+        foreach ($existingPrizers as $prizer) {
+            $existingPrizersMap[$prizer->id_prizer] = $prizer;
+        }
+
+        // Загружаем данные из POST запроса
+        if ($model->load(Yii::$app->request->post())) {
+            // Сначала проверяем, проходят ли данные валидацию
+            if ($model->validate()) {
+                // Сохраняем модель
+                $model->save();
+
+                // Обновление связи спортсменов и призов
+                $prizers = Yii::$app->request->post('prizer', []);
+
+                // Проверка на дублирование спортсменов
+                $sportsmanIds = array_filter($prizers); // Убираем пустые значения
+                if (count($sportsmanIds) !== count(array_unique($sportsmanIds))) {
+                    $model->addError('prizer', 'Один и тот же спортсмен не может занимать несколько призовых мест.');
+                    return $this->render('update', [
+                        'model' => $model,
+                        'existingPrizers' => $existingPrizersMap,
+                    ]);
+                }
+
+                // Очистка старых записей
+                SportsmenPrizer::deleteAll(['id_sorevnovaniya' => $model->id]);
+                foreach ($prizers as $prizerId => $sportsmanId) {
+                    if ($sportsmanId) {
+                        $sportsmenPrizer = new SportsmenPrizer();
+                        $sportsmenPrizer->id_sorevnovaniya = $model->id;
+                        $sportsmenPrizer->id_prizer = $prizerId;
+                        $sportsmenPrizer->id_sportsmen = $sportsmanId;
+                        $sportsmenPrizer->save();
+                    }
+                }
+                return $this->redirect(['index']);
+            } else {
+                // Если валидация не прошла, выводим ошибки
+                Yii::$app->session->setFlash('error', 'Пожалуйста, исправьте ошибки в форме.');
+            }
+        }
+
+        return $this->render('update', [
+            'model' => $model,
+            'existingPrizers' => $existingPrizersMap,
+        ]);
+    }
+
+    public function actionDelete($id)
+    {
+        // Находим модель соревнования
+        $model = $this->findModel($id);
+
+        // Удаляем связанные записи из таблицы sportsmen_prizer
+        SportsmenPrizer::deleteAll(['id_sorevnovaniya' => $model->id]);
+
+        // Удаляем запись из sorevnovaniya
+        $model->delete();
+
+        return $this->redirect(['index']);
+    }
+
+    protected function findModel($id)
+    {
+        if (($model = Sorevnovaniya::findOne($id)) !== null) {
+            return $model;
+        }
+
+        throw new NotFoundHttpException('The requested page does not exist.');
+    }
+}
+
+```
+index.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\grid\GridView;
+
+$this->title = 'Соревнования CRUD';
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<link rel="stylesheet" href="../../web/css/sorev.css">
+
+<h1><?= Html::encode($this->title) ?></h1>
+
+<p>
+    <?= Html::a('Создать Соревнование', ['create'], ['class' => 'btn btn-success']) ?>
+</p>
+
+<?= GridView::widget([
+    'dataProvider' => $dataProvider,
+    'columns' => [
+        [
+            'attribute' => 'id',
+            'label' => 'ID',
+        ],
+        'name',
+        'data_provedeniya',
+        [
+            'attribute' => 'structure.name',
+            'label' => 'Структура',
+        ],
+        [
+            'attribute' => 'vidSporta.name',
+            'label' => 'Вид спорта',
+        ],
+        [
+            'label' => 'Призеры',
+            'value' => function ($model) {
+                $prizers = $model->sportsmenPrizers; // Получаем всех призеров
+                return $prizers ? implode(', ', array_map(fn($prizer) => $prizer->sportsmen->name, $prizers)) : '-';
+            },
+        ],
+        [
+            'class' => 'yii\grid\ActionColumn',
+            'header' => 'Действия',
+            'template' => '{view} {update} {delete}',
+            // 'buttons' => [
+            // 'view' => function ($url) {
+            //     return Html::a('Просмотр', $url, [
+            //         'class' => 'btn btn-success', 
+            //         'title' => 'Просмотр',
+            //         'aria-label' => 'Просмотр',
+            //         'data-pjax' => '0', 
+            //     ]);
+            // },
+            // 'update' => function ($url) {
+            //     return Html::a('Изменить', $url, [
+            //         'class' => 'btn btn-warning', 
+            //         'title' => 'Изменить',
+            //         'aria-label' => 'Изменить',
+            //         'data-pjax' => '0', 
+            //     ]);
+            // },
+            // 'delete' => function ($url) {
+            //     return Html::a('Удалить', $url, [
+            //         'class' => 'btn btn-danger', 
+            //         'title' => 'Удалить',
+            //         'aria-label' => 'Удалить',
+            // 'data-confirm' => 'Вы уверены, что хотите удалить этот элемент?',
+            //         'data-method' => 'post',
+            //         'data-pjax' => '0', 
+            // ]);
+            // },
+            // ],
+        ],
+    ],
+]); ?>
+```
+create.php:
+```<?php
+
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+use app\models\Structure;
+use app\models\VidSporta;
+use app\models\Prizer;
+use app\models\Sportsmen;
+
+// Получаем последний ID из таблицы sorevnovaniya
+$lastId = (new \yii\db\Query())
+    ->select('MAX(id)')
+    ->from('sorevnovaniya')
+    ->scalar();
+
+$this->title = 'Создать Соревнование';
+$this->params['breadcrumbs'][] = ['label' => 'Соревнования', 'url' => ['index']];
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<h1><?= Html::encode($this->title) ?></h1>
+
+<div class="sorevnovaniya-create">
+
+    <div class="sorevnovaniya-form">
+
+        <?php if ($model->hasErrors()): ?>
+            <div class="alert alert-danger">
+                <strong>Ошибка!</strong> Пожалуйста, исправьте следующие ошибки:
+                <ul>
+                    <?php foreach ($model->getErrors() as $errors): ?>
+                        <?php foreach ($errors as $error): ?>
+                            <li><?= Html::encode($error) ?></li>
+                        <?php endforeach; ?>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <?php $form = ActiveForm::begin(); ?>
+
+        <!-- Поле для отображения ID -->
+        <div class="form-group">
+            <label>ID:</label>
+            <p class="form-control-static"><?= Html::encode($lastId + 1) ?></p>
+        </div>
+
+        <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
+        <?= $form->field($model, 'data_provedeniya')->textInput(['type' => 'date']) ?>
+
+        <?= $form->field($model, 'id_structure')->dropDownList(
+            Structure::find()->select(['name', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите структуру']
+        ) ?>
+
+        <?= $form->field($model, 'id_vid_sporta')->dropDownList(
+            VidSporta::find()->select(['name', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите вид спорта']
+        ) ?>
+
+        <!-- Изменяем поле id_prizer на числовое -->
+        <?= $form->field($model, 'id_prizer')->textInput(['type' => 'number']) ?>
+
+        <div id="prizer-container">
+            <h3>Призеры</h3>
+            <?php foreach (Prizer::find()->all() as $prizer): ?>
+                <div class="prizer-group">
+                    <label><?= Html::encode($prizer->nagrada) ?></label>
+                    <?= Html::dropDownList(
+                        "prizer[{$prizer->id}]",
+                        null,
+                        Sportsmen::find()->select(['name', 'id'])->indexBy('id')->column(),
+                        ['prompt' => 'Выберите спортсмена']
+                    ); ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+        <div class="form-group">
+            <?= Html::submitButton('Сохранить', ['class' => 'btn btn-success']) ?>
+        </div>
+
+        <?php ActiveForm::end(); ?>
+
+    </div>
+</div>
+```
+update.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+use app\models\Structure;
+use app\models\VidSporta;
+use app\models\Sportsmen;
+use app\models\Prizer;
+
+$this->title = 'Изменить Соревнование: ' . $model->name;
+$this->params['breadcrumbs'][] = ['label' => 'Соревнования', 'url' => ['index']];
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<h1><?= Html::encode($this->title) ?></h1>
+
+<div class="sorevnovaniya-update">
+
+    <div class="sorevnovaniya-form">
+
+        <?php if ($model->hasErrors()): ?>
+            <div class="alert alert-danger">
+                <strong>Ошибка!</strong> Пожалуйста, исправьте следующие ошибки:
+                <ul>
+                    <?php foreach ($model->getErrors() as $errors): ?>
+                        <?php foreach ($errors as $error): ?>
+                            <li><?= Html::encode($error) ?></li>
+                        <?php endforeach; ?>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+
+        <?php $form = ActiveForm::begin(); ?>
+
+        <!-- Поле для отображения ID -->
+        <div class="form-group">
+            <label>ID:</label>
+            <p class="form-control-static"><?= Html::encode($model->id) ?></p>
+        </div>
+
+        <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
+        <?= $form->field($model, 'data_provedeniya')->textInput(['type' => 'date']) ?>
+
+
+        <?= $form->field($model, 'id_structure')->dropDownList(
+            Structure::find()->select(['name', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите структуру']
+        ) ?>
+
+        <?= $form->field($model, 'id_vid_sporta')->dropDownList(
+            VidSporta::find()->select(['name', 'id'])->indexBy('id')->column(),
+            ['prompt' => 'Выберите вид спорта']
+        ) ?>
+
+        <!-- Изменяем поле id_prizer на числовое -->
+        <?= $form->field($model, 'id_prizer')->textInput(['type' => 'number']) ?>
+
+        <div id="prizer-container">
+            <h3>Призеры</h3>
+            <?php foreach (Prizer::find()->all() as $prizer): ?>
+                <div class="prizer-group">
+                    <label><?= Html::encode($prizer->nagrada) ?></label>
+                    <?= Html::dropDownList(
+                        "prizer[{$prizer->id}]",
+                        // Устанавливаем значение, если призер уже связан со спортсменом
+                        isset($existingPrizers[$prizer->id]) ? $existingPrizers[$prizer->id]->id_sportsmen : null,
+                        Sportsmen::find()->select(['name', 'id'])->indexBy('id')->column(),
+                        ['prompt' => 'Выберите спортсмена']
+                    ); ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+
+        <div class="form-group">
+            <?= Html::submitButton('Сохранить', ['class' => 'btn btn-success']) ?>
+        </div>
+
+        <?php ActiveForm::end(); ?>
+
+    </div>
+</div>
+```
+view.php:
+```
+<?php
+
+use yii\helpers\Html;
+
+/* @var $this yii\web\View */
+/* @var $model app\models\Sorevnovaniya */
+
+$this->title = $model->name;
+$this->params['breadcrumbs'][] = ['label' => 'Соревнования', 'url' => ['index']];
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<h1><?= Html::encode($this->title) ?></h1>
+
+<p>
+    <?= Html::a('Изменить', ['update', 'id' => $model->id], ['class' => 'btn btn-primary']) ?>
+    <?= Html::a('Удалить', ['delete', 'id' => $model->id], [
+        'class' => 'btn btn-danger',
+        'data' => [
+            'confirm' => 'Вы уверены, что хотите удалить этот элемент?',
+            'method' => 'post',
+        ],
+    ]) ?>
+</p>
+
+<div>
+    <strong>ID:</strong> <?= Html::encode($model->id) ?><br>
+    <strong>Название:</strong> <?= Html::encode($model->name) ?><br>
+    <strong>Дата проведения:</strong> <?= Html::encode($model->data_provedeniya) ?><br>
+    <strong>Структура:</strong> <?= Html::encode($model->structure->name) ?><br>
+    <strong>Вид спорта:</strong> <?= Html::encode($model->vidSporta->name) ?><br>
+    <strong>Призеры:</strong>
+    <?php
+    $prizers = $model->sportsmenPrizers;
+    if ($prizers) {
+        foreach ($prizers as $prizer) {
+            echo Html::encode($prizer->sportsmen->name) . '<br>';
+        }
+    } else {
+        echo '-';
+    }
+    ?>
+</div>
+```
+модели sorevnovaniya.php:
+```
+<?php
+
+namespace app\models;
+
+use yii\db\ActiveRecord;
+
+class Sorevnovaniya extends ActiveRecord
+{
+    public static function tableName()
+    {
+        return 'sorevnovaniya';
+    }
+
+    public function getOrgSorevnovaniyas()
+    {
+        return $this->hasMany(OrgSorevnovaniya::class, ['id_sorevnovaniya' => 'id']);
+    }
+
+    // public function getPrizer()
+    // {
+    //     return $this->hasOne(Prizer::class, ['id' => 'id_prizer']);
+    // }
+
+    public function getSportsmenPrizers()
+    {
+        return $this->hasMany(SportsmenPrizer::class, ['id_sorevnovaniya' => 'id']);
+    }
+
+    public function getStructure()
+    {
+        return $this->hasOne(Structure::class, ['id' => 'id_structure']);
+    }
+
+    public function getVidSporta()
+    {
+        return $this->hasOne(VidSporta::class, ['id' => 'id_vid_sporta']);
+    }
+
+    public function getSportsmenSorevnovaniyas()
+    {
+        return $this->hasMany(SportsmenSorevnovaniya::class, ['id_sorevnovaniya' => 'id']);
+    }
+
+    // Правила валидации
+    public function rules()
+    {
+        return [
+            [['id_structure', 'id_vid_sporta'], 'safe'],
+            [['id_structure', 'id_vid_sporta'], 'integer'],
+            [['name', 'data_provedeniya', 'id_structure', 'id_vid_sporta', 'id_prizer'], 'required'],
+        
+        ];
+    }
+
+    public function attributeLabels()
+    {
+        return [
+            'id_structure' => 'Структура',
+            'id_vid_sporta' => 'Вид спорта',
+        ];
+    }
+}
+```
+и sportsmenPrizer.php:
+```
+<?php
+
+namespace app\models;
+
+use yii\db\ActiveRecord;
+
+class SportsmenPrizer extends ActiveRecord
+{
+    public static function tableName()
+    {
+        return 'sportsmen_prizer';
+    }
+
+    public function getSportsmen()
+    {
+        return $this->hasOne(Sportsmen::class, ['id' => 'id_sportsmen']);
+    }
+
+    public function getPrizer()
+    {
+        return $this->hasOne(Prizer::class, ['id' => 'id_prizer']);
+    }
+
+    // public function getPrizer2()
+    // {
+    //     return $this->hasOne(Sorevnovaniya::class, ['id_prizer' => 'id_sorevnovaniya']);
+    // }
+
+    public function getSportsmenPrizers()
+    {
+        return $this->hasMany(SportsmenPrizer::class, ['id_sorevnovaniya' => 'id']);
+    }
+}
+```
