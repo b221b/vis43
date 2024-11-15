@@ -1,7 +1,8 @@
 -----------------------------
 model class
 
-app\modules\admin\models\
+( app\modules\admin\models\ ) не работает
+app\models\ - работает
 
 нужно в конце добавить название таблицы
 -----------------------------
