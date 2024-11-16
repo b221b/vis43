@@ -1,0 +1,549 @@
+я создаю CRUD интерфейс для своих таблиц при помощи gii из фреймворка yii2.
+
+у меня есть таблица - structureChars - с полями id id_structure vmestimost tip_pokritiya kolvo_oborydovaniya kolvo_tribun
+поле id_structure связано с полем id, таблица structure
+необходимо изменить внешний ключи на данные из связанных таблиц.
+и необходимо убрать поле id со всех страниц, что бы их не было видно.
+необходимо перевести все надписи на русский.
+
+сделай так, что бы на Index странице если поле имеет (not set) то оно не должно отображаться на странице.
+сделай так, что бы для выбранной name из structure проверялось какое для него значение в поле type из structure.
+если type - стадион - то для него при создании, редактировании и просмотре актуально только  поле vmestimost
+если type - корт - то для него при создании, редактировании и просмотре актуально только  поле tip_pokritiya
+если type - спортивный зал - то для него при создании, редактировании и просмотре актуально только  поле kolvo_oborydovaniya
+если type - манеж - то для него при создании, редактировании и просмотре актуально только  поле kolvo_tribun
+
+такие соответствия должны быть на странице Index во время просмотра, во время создании записи, просмотра записи и редактирования. у меня уже реализован js код для подобного, может быть он тебе поможет:
+```
+// <?php
+// $script = <<< JS
+
+function updateDynamicFields() {
+    var selected = $('#structure-type').val();
+    $('#dynamic-fields > div').hide(); // Скрываем все динамические поля 
+    if (selected == 'Стадион') {
+        $('#stadion-fields').show(); // Показываем поля для стадиона 
+    } else if (selected == 'Корт') {
+        $('#kort-fields').show(); // Показываем поля для корта 
+    } else if (selected == 'Спортивный зал') {
+        $('#sport-zal-fields').show(); // Показываем поля для спортивного зала 
+    } else if (selected == 'Манеж') {
+        $('#manezh-fields').show(); // Показываем поля для манежа 
+    }
+}
+
+// Обновляем динамические поля при загрузке страницы
+updateDynamicFields();
+
+// Обработчик для изменения выбора
+$('#structure-type').change(function () {
+    updateDynamicFields();
+});
+
+// Обработчик для кнопки "Очистить"
+$('#clear-button').click(function () {
+    $('#structure-type').val(''); // Сбрасываем выпадающий список
+    $('#dynamic-fields > div').hide(); // Скрываем все динамические поля 
+    $('#dynamic-fields input').val(''); // Очищаем все поля ввода 
+    $('#results-table').hide(); // Скрываем таблицу с результатами
+});
+
+// JS;
+// $this->registerJs($script);
+// ?>
+```
+
+StructureChars
+```
+<?php
+
+namespace app\models;
+
+use yii\db\ActiveRecord;
+
+class StructureChars extends ActiveRecord
+{
+    public static function tableName()
+    {
+        return 'structure_chars';
+    }
+
+    public function getStructure()
+    {
+        return $this->hasOne(Structure::class, ['id' => 'id_structure']);
+    }
+
+    public function rules()
+    {
+        return [
+            [['id_structure',], 'required'],
+            [['vmestimost', 'tip_pokritiya', 'kolvo_oborydovaniya', 'kolvo_tribun'], 'safe'],
+        ];
+    }
+
+    public function attributeLabels()
+    {
+        return [
+            'id_structure' => 'Название структуры',
+            'vmestimost' => 'Вместимость',
+            'tip_pokritiya' => 'Тип покрытия',
+            'kolvo_oborydovaniya' => 'Количество оборудования',
+            'kolvo_tribun' => 'Количество Трибун',
+        ];
+    }
+}
+
+```
+
+StructureCharsController
+```
+<?php
+
+namespace app\modules\admin\controllers;
+
+use Yii;
+use app\models\StructureChars;
+use app\modules\admin\models\StructureCharsSearch;
+use yii\web\Controller;
+use yii\web\NotFoundHttpException;
+use yii\filters\VerbFilter;
+
+/**
+ * StructureCharsController implements the CRUD actions for StructureChars model.
+ */
+class StructureCharsController extends Controller
+{
+    /**
+     * @inheritDoc
+     */
+    public function behaviors()
+    {
+        return array_merge(
+            parent::behaviors(),
+            [
+                'verbs' => [
+                    'class' => VerbFilter::className(),
+                    'actions' => [
+                        'delete' => ['POST'],
+                    ],
+                ],
+            ]
+        );
+    }
+
+    /**
+     * Lists all StructureChars models.
+     *
+     * @return string
+     */
+    public function actionIndex()
+    {
+        $searchModel = new StructureCharsSearch();
+        $dataProvider = $searchModel->search($this->request->queryParams);
+
+        return $this->render('index', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+        ]);
+    }
+
+    /**
+     * Displays a single StructureChars model.
+     * @param int $id
+     * @return string
+     * @throws NotFoundHttpException if the model cannot be found
+     */
+    public function actionView($id)
+    {
+        return $this->render('view', [
+            'model' => $this->findModel($id),
+        ]);
+    }
+
+    /**
+     * Creates a new StructureChars model.
+     * If creation is successful, the browser will be redirected to the 'view' page.
+     * @return string|\yii\web\Response
+     */
+    public function actionCreate()
+{
+    $model = new StructureChars();
+
+    if ($this->request->isPost) {
+        Yii::info($this->request->post(), 'post_data');
+        if ($model->load($this->request->post())) {
+            if ($model->save()) {
+                return $this->redirect(['view', 'id' => $model->id]);
+            } else {
+                Yii::error($model->getErrors(), 'model_errors');
+            }
+        }
+    } else {
+        $model->loadDefaultValues();
+    }
+
+    return $this->render('create', [
+        'model' => $model,
+    ]);
+}
+
+
+    /**
+     * Updates an existing StructureChars model.
+     * If update is successful, the browser will be redirected to the 'view' page.
+     * @param int $id
+     * @return string|\yii\web\Response
+     * @throws NotFoundHttpException if the model cannot be found
+     */
+    public function actionUpdate($id)
+    {
+        $model = $this->findModel($id);
+
+        if ($this->request->isPost && $model->load($this->request->post()) && $model->save()) {
+            return $this->redirect(['view', 'id' => $model->id]);
+        }
+
+        return $this->render('update', [
+            'model' => $model,
+        ]);
+    }
+
+    /**
+     * Deletes an existing StructureChars model.
+     * If deletion is successful, the browser will be redirected to the 'index' page.
+     * @param int $id
+     * @return \yii\web\Response
+     * @throws NotFoundHttpException if the model cannot be found
+     */
+    public function actionDelete($id)
+    {
+        $this->findModel($id)->delete();
+
+        return $this->redirect(['index']);
+    }
+
+    /**
+     * Finds the StructureChars model based on its primary key value.
+     * If the model is not found, a 404 HTTP exception will be thrown.
+     * @param int $id
+     * @return StructureChars the loaded model
+     * @throws NotFoundHttpException if the model cannot be found
+     */
+    protected function findModel($id)
+    {
+        if (($model = StructureChars::findOne(['id' => $id])) !== null) {
+            return $model;
+        }
+
+        throw new NotFoundHttpException('The requested page does not exist.');
+    }
+}
+```
+StructureCharsSearch
+```
+<?php
+
+namespace app\modules\admin\models;
+
+use yii\base\Model;
+use yii\data\ActiveDataProvider;
+use app\models\StructureChars;
+
+/**
+ * StructureCharsSearch represents the model behind the search form of `app\models\StructureChars`.
+ */
+class StructureCharsSearch extends StructureChars
+{
+    /**
+     * {@inheritdoc}
+     */
+    public function rules()
+    {
+        return [
+            [['id', 'id_structure', 'vmestimost', 'kolvo_oborydovaniya', 'kolvo_tribun'], 'integer'],
+            [['tip_pokritiya'], 'safe'],
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function scenarios()
+    {
+        // bypass scenarios() implementation in the parent class
+        return Model::scenarios();
+    }
+
+    /**
+     * Creates data provider instance with search query applied
+     *
+     * @param array $params
+     *
+     * @return ActiveDataProvider
+     */
+    public function search($params)
+    {
+        $query = StructureChars::find()->joinWith('structure');
+
+        $dataProvider = new ActiveDataProvider([
+            'query' => $query,
+        ]);
+
+        $this->load($params);
+
+        if (!$this->validate()) {
+            return $dataProvider;
+        }
+
+        // grid filtering conditions
+        $query->andFilterWhere([
+            'structure_chars.id' => $this->id,
+            'structure_chars.id_structure' => $this->id_structure,
+            'vmestimost' => $this->vmestimost,
+            'kolvo_oborydovaniya' => $this->kolvo_oborydovaniya,
+            'kolvo_tribun' => $this->kolvo_tribun,
+        ]);
+
+        $query->andFilterWhere(['like', 'tip_pokritiya', $this->tip_pokritiya]);
+
+        return $dataProvider;
+    }
+}
+
+```
+index.php
+```
+<?php
+
+use app\models\StructureChars;
+use yii\helpers\Html;
+use yii\helpers\Url;
+use yii\grid\ActionColumn;
+use yii\grid\GridView;
+
+/** @var yii\web\View $this */
+/** @var app\modules\admin\models\StructureCharsSearch $searchModel */
+/** @var yii\data\ActiveDataProvider $dataProvider */
+
+$this->title = 'Таблица Характеристики Структур';
+$this->params['breadcrumbs'][] = ['label' => 'Административная часть', 'url' => ['/admin']];
+$this->params['breadcrumbs'][] = $this->title;
+?>
+<div class="structure-chars-index">
+
+    <h1><?= Html::encode($this->title) ?></h1>
+
+    <p>
+        <?= Html::a('Создать Характеристики Структур', ['create'], ['class' => 'btn btn-success']) ?>
+    </p>
+
+    <?php // echo $this->render('_search', ['model' => $searchModel]); 
+    ?>
+
+    <?= GridView::widget([
+        'dataProvider' => $dataProvider,
+        'filterModel' => $searchModel,
+        'columns' => [
+            ['class' => 'yii\grid\SerialColumn'],
+
+            [
+                'attribute' => 'id_structure',
+                'value' => function ($model) {
+                    return $model->structure ? $model->structure->name : 'Не указано'; // замените 'name' на нужное поле
+                },
+            ],
+            'vmestimost',
+            'tip_pokritiya',
+            'kolvo_oborydovaniya',
+            'kolvo_tribun',
+            [
+                'class' => ActionColumn::className(),
+                'urlCreator' => function ($action, StructureChars $model, $key, $index, $column) {
+                    return Url::toRoute([$action, 'id' => $model->id]);
+                }
+            ],
+        ],
+    ]); ?>
+
+
+</div>
+```
+create.php:
+```
+<?php
+
+use yii\helpers\Html;
+
+/** @var yii\web\View $this */
+/** @var app\models\StructureChars $model */
+
+$this->title = 'Создать Характеристики Структур';
+$this->params['breadcrumbs'][] = ['label' => 'Таблица Характеристики Структур', 'url' => ['index']];
+$this->params['breadcrumbs'][] = $this->title;
+?>
+<div class="structure-chars-create">
+
+    <h1><?= Html::encode($this->title) ?></h1>
+
+    <?= $this->render('_form', [
+        'model' => $model,
+    ]) ?>
+
+</div>
+
+```
+update.php:
+```
+<?php
+
+use yii\helpers\Html;
+
+/** @var yii\web\View $this */
+/** @var app\models\StructureChars $model */
+
+$this->title = 'Обновить Характеристики Структур: ' . $model->structure->name;
+$this->params['breadcrumbs'][] = ['label' => 'Таблица Характеристики Структур', 'url' => ['index']];
+$this->params['breadcrumbs'][] = ['label' => $this->title, 'url' => ['view', 'id' => $model->id]];
+$this->params['breadcrumbs'][] = 'Update';
+?>
+<div class="structure-chars-update">
+
+    <h1><?= Html::encode($this->title) ?></h1>
+
+    <?= $this->render('_form', [
+        'model' => $model,
+    ]) ?>
+
+</div>
+
+```
+view.php
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\DetailView;
+
+/** @var yii\web\View $this */
+/** @var app\models\StructureChars $model */
+
+$this->title = $model->structure->name;
+$this->params['breadcrumbs'][] = ['label' => 'Таблица Характеристики Структур', 'url' => ['index']];
+$this->params['breadcrumbs'][] = $this->title;
+\yii\web\YiiAsset::register($this);
+?>
+<div class="structure-chars-view">
+
+    <h1><?= Html::encode($this->title) ?></h1>
+
+    <p>
+        <?= Html::a('Обновить', ['update', 'id' => $model->id], ['class' => 'btn btn-primary']) ?>
+        <?= Html::a('Удалить', ['delete', 'id' => $model->id], [
+            'class' => 'btn btn-danger',
+            'data' => [
+                'confirm' => 'Are you sure you want to delete this item?',
+                'method' => 'post',
+            ],
+        ]) ?>
+    </p>
+
+    <?= DetailView::widget([
+        'model' => $model,
+        'attributes' => [
+            [
+                'attribute' => 'id_structure',
+                'value' => function ($models) {
+                    return $models->structure ? $models->structure->name : 'не указано';
+                },
+            ],
+            'vmestimost',
+            'tip_pokritiya',
+            'kolvo_oborydovaniya',
+            'kolvo_tribun',
+        ],
+    ]) ?>
+
+</div>
+```
+
+_search.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+use app\models\Structure;
+
+/** @var yii\web\View $this */
+/** @var app\modules\admin\models\StructureCharsSearch $model */
+/** @var yii\widgets\ActiveForm $form */
+?>
+
+<div class="structure-chars-search">
+
+    <?php $form = ActiveForm::begin([
+        'action' => ['index'],
+        'method' => 'get',
+    ]); ?>
+
+    <?= $form->field($model, 'id_structure')->dropDownList(
+        \yii\helpers\ArrayHelper::map(Structure::find()->all(), 'id', 'name'), // замените 'name' на нужное поле
+        ['prompt' => 'Выберите структуру']
+    ) ?>
+
+    <?= $form->field($model, 'vmestimost') ?>
+
+    <?= $form->field($model, 'tip_pokritiya') ?>
+
+    <?= $form->field($model, 'kolvo_oborydovaniya') ?>
+
+    <?php // echo $form->field($model, 'kolvo_tribun') 
+    ?>
+
+    <div class="form-group">
+        <?= Html::submitButton('Search', ['class' => 'btn btn-primary']) ?>
+        <?= Html::resetButton('Reset', ['class' => 'btn btn-outline-secondary']) ?>
+    </div>
+
+    <?php ActiveForm::end(); ?>
+
+</div>
+```
+_form.php:
+```
+<?php
+
+use yii\helpers\Html;
+use yii\widgets\ActiveForm;
+use app\models\Structure;
+
+/** @var yii\web\View $this */
+/** @var app\models\StructureChars $model */
+/** @var yii\widgets\ActiveForm $form */
+?>
+
+<div class="structure-chars-form">
+
+    <?php $form = ActiveForm::begin(); ?>
+
+    <?= $form->field($model, 'id_structure')->dropDownList(
+        \yii\helpers\ArrayHelper::map(Structure::find()->all(), 'id', 'name'), // замените 'name' на нужное поле
+        ['prompt' => 'Выберите структуру']
+    ) ?>
+
+    <?= $form->field($model, 'vmestimost')->textInput() ?>
+
+    <?= $form->field($model, 'tip_pokritiya')->textInput(['maxlength' => true]) ?>
+
+    <?= $form->field($model, 'kolvo_oborydovaniya')->textInput() ?>
+
+    <?= $form->field($model, 'kolvo_tribun')->textInput() ?>
+
+    <div class="form-group">
+        <?= Html::submitButton('Сохранить', ['class' => 'btn btn-success']) ?>
+    </div>
+
+    <?php ActiveForm::end(); ?>
+
+</div>
+```
