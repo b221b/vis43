@@ -1,0 +1,146 @@
+мое задание - решить задачу классификации по датасету методом опорных векторов используя параметр C для SVM
+
+я уже решил эту задачу, но есть пару нюансов.
+
+решение этой задачи:
+```
+import pandas as pd
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.svm import SVR
+
+# Загрузка данных с указанием разделителя
+data = pd.read_csv('exam_регр.csv', sep=';')
+
+print(data.columns)
+print(data.head())
+
+# Проверка на наличие пропущенных значений и их удаление
+data = data.dropna()
+
+# Преобразование всех категориальных переменных в числовые
+categorical_cols = ['qualification', 'physics', 'chemistry', 'biology', 'english', 'geography', 'history']
+data = pd.get_dummies(data, columns=categorical_cols, drop_first=True)
+
+# Разделение на признаки и целевую переменную
+X = data.drop(columns=['Id', 'mean_exam_points'])
+y = data['mean_exam_points']
+
+# Разделение данных на обучающую и тестовую выборки
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
+from sklearn.svm import SVR
+import matplotlib.pyplot as plt
+
+# Загрузка данных с указанием разделителя
+data = pd.read_csv('exam_регр.csv', sep=';')
+
+# Проверка на наличие пропущенных значений и их удаление
+data = data.dropna()
+
+# Преобразование всех категориальных переменных в числовые
+categorical_cols = ['qualification', 'physics', 'chemistry', 'biology', 'english', 'geography', 'history']
+data = pd.get_dummies(data, columns=categorical_cols, drop_first=True)
+
+# Разделение на признаки и целевую переменную
+X = data.drop(columns=['Id', 'mean_exam_points'])
+y = data['mean_exam_points']
+
+# Разделение данных на обучающую и тестовую выборки
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Настройка и обучение модели SVM с использованием кросс-проверки
+# Подбор гиперпараметра C
+param_grid_svm = {'C': [0.1, 1, 10, 100]}
+grid_svm = GridSearchCV(SVR(), param_grid_svm, cv=5)
+
+# Обучение модели
+grid_svm.fit(X_train, y_train)
+
+# Получение лучшего параметра C
+best_svm = grid_svm.best_estimator_
+print(f'Лучший параметр C для SVM: {grid_svm.best_params_}')
+
+# Оценка модели на обучающей выборке
+train_score = best_svm.score(X_train, y_train)
+print(f'Точность на обучающей выборке: {train_score}')
+
+# Оценка модели на тестовой выборке
+test_score = best_svm.score(X_test, y_test)
+print(f'Точность на тестовой выборке: {test_score}')
+
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
+from sklearn.svm import SVR
+import matplotlib.pyplot as plt
+
+# Кросс-валидация для оценки модели
+cv_scores = cross_val_score(best_svm, X, y, cv=5)
+print(f'Кросс-валидация - средняя точность: {np.mean(cv_scores)}, стандартное отклонение: {np.std(cv_scores)}')
+
+# Визуализация результатов
+plt.figure(figsize=(10, 5))
+plt.plot(range(1, 6), cv_scores, marker='o', label='Кросс-валидация')
+plt.axhline(y=train_score, color='r', linestyle='--', label='Точность на обучающей выборке')
+plt.axhline(y=test_score, color='g', linestyle='--', label='Точность на тестовой выборке')
+plt.title('Сравнение точностей')
+plt.xlabel('Fold')
+plt.ylabel('Точность')
+plt.xticks(range(1, 6))
+plt.legend()
+plt.grid()
+plt.show()
+
+# Дерево принятия решений
+
+from sklearn.tree import DecisionTreeRegressor
+
+# Подбор глубины дерева
+param_grid_tree = {'max_depth': [None, 5, 10, 15, 20]}
+grid_tree = GridSearchCV(DecisionTreeRegressor(), param_grid_tree, cv=5)
+grid_tree.fit(X_train, y_train)
+
+best_tree = grid_tree.best_estimator_
+print(f'Лучшая глубина дерева: {grid_tree.best_params_}')
+
+# Случайный лес
+
+from sklearn.ensemble import RandomForestRegressor
+
+# Подбор количества оценивателей
+param_grid_forest = {'n_estimators': [10, 50, 100, 200]}
+grid_forest = GridSearchCV(RandomForestRegressor(), param_grid_forest, cv=5)
+grid_forest.fit(X_train, y_train)
+
+best_forest = grid_forest.best_estimator_
+print(f'Лучшее количество оценивателей: {grid_forest.best_params_}')
+
+from sklearn.metrics import mean_squared_error
+
+# Оценка SVM
+y_pred_svm = best_svm.predict(X_test)
+mse_svm = mean_squared_error(y_test, y_pred_svm)
+
+# Оценка дерева принятия решений
+y_pred_tree = best_tree.predict(X_test)
+mse_tree = mean_squared_error(y_test, y_pred_tree)
+
+# Оценка случайного леса
+y_pred_forest = best_forest.predict(X_test)
+mse_forest = mean_squared_error(y_test, y_pred_forest)
+
+print(f'MSE SVM: {mse_svm}')
+print(f'MSE Дерево: {mse_tree}')
+print(f'MSE Случайный лес: {mse_forest}')
+```
+
+результат:
+MSE SVM: 75.60166618864659
+MSE Дерево: 48.57571759612477
+MSE Случайный лес: 46.870536807850094
+
+
+результаты неадекватные, числа должны быть десятичные, от 0 до 1, а тут 75 и тд, переделай что бы было нормально все
