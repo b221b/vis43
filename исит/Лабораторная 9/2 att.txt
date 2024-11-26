@@ -1,0 +1,54 @@
+внеси изменения что бы не было отрицательных значений.
+проведи Оценка качества модели- Средняя абсолютная ошибка, Среднеквадратичная ошибка, Коэффициент детерминации.
+создай визуализацию, Постройте график, сравнивающий предсказанные значения с истинными значениями целевой переменной
+
+```
+import numpy as np
+import pandas as pd
+import statsmodels.api as sm
+from sklearn.model_selection import train_test_split
+
+# Шаг 1: Загрузка датасета
+dataset = pd.read_csv('1.benign.csv')
+
+# Шаг 2: Определение матрицы признаков и целевой переменной
+X = dataset.iloc[:, :-1].values  # Все столбцы, кроме последнего
+y = dataset.iloc[:, -1].values    # Последний столбец как целевая переменная
+
+# Шаг 3: Разделение данных на обучающую и тестовую выборки
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+
+# Шаг 4: Добавление константного столбца для OLS
+X_train = sm.add_constant(X_train)
+X_test = sm.add_constant(X_test)
+
+# Шаг 5: Построение модели OLS
+regressor_OLS = sm.OLS(endog=y_train, exog=X_train).fit()
+
+# Шаг 6: Backward elimination
+def backward_elimination(X, y, significance_level=0.05):
+    num_vars = X.shape[1]
+    selected_indices = np.arange(num_vars)  # Сохраним индексы оставшихся признаков
+    for i in range(num_vars):
+        regressor_OLS = sm.OLS(endog=y, exog=X[:, selected_indices]).fit()
+        max_var = max(regressor_OLS.pvalues).astype(float)
+        if max_var > significance_level:
+            for j in range(len(selected_indices)):
+                if (regressor_OLS.pvalues[j] == max_var):
+                    selected_indices = np.delete(selected_indices, j)
+                    break
+    return selected_indices
+
+# Применение метода backward elimination
+selected_indices = backward_elimination(X_train, y_train)
+X_opt = X_train[:, selected_indices]
+regressor_OLS = sm.OLS(endog=y_train, exog=X_opt).fit()
+
+# Шаг 7: Предсказание на тестовой выборке
+X_test_opt = X_test[:, selected_indices]  # Используем индексы оставшихся признаков
+y_pred = regressor_OLS.predict(X_test_opt)
+
+# Вывод предсказаний
+print("Предсказанные значения:")
+print(y_pred)
+```
