@@ -1,0 +1,245 @@
+напиши комментарии в тех местах где происходят основные процессы что бы я понимал что тут происходит.
+
+напиши основные определения которые я должен знать
+
+задача 1
+```
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Генерация спирального набора данных
+def make_spiral(n_samples=1000, noise=0.1):
+    theta = np.linspace(0, 4 * np.pi, n_samples)
+    r = theta + np.random.randn(n_samples) * noise
+    x = r * np.sin(theta)
+    y = r * np.cos(theta)
+    return np.column_stack((x, y)), (theta > 2 * np.pi).astype(int)
+
+# Создание спирального набора данных
+X, y = make_spiral()
+plt.scatter(X[:, 0], X[:, 1], c=y)
+plt.title('Spiral Dataset')
+plt.xlabel('X-axis')
+plt.ylabel('Y-axis')
+plt.show()
+
+
+import keras
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, BatchNormalization
+from keras.optimizers import Adam, SGD
+
+def create_model(learning_rate=0.001, neurons=32, layers=1, dropout_rate=0.0, use_batch_norm=False):
+    model = Sequential()
+    model.add(Dense(neurons, activation='relu', input_shape=(2,)))
+
+    if use_batch_norm:
+        model.add(BatchNormalization())
+
+    for _ in range(layers - 1):
+        model.add(Dense(neurons, activation='relu'))
+        if use_batch_norm:
+            model.add(BatchNormalization())
+
+    if dropout_rate > 0:
+        model.add(Dropout(dropout_rate))
+
+    model.add(Dense(1, activation='sigmoid'))
+
+    optimizer = Adam(learning_rate=learning_rate)
+    model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+
+    return model
+
+
+def train_model(model, X, y, epochs=20, batch_size=32):
+    history = model.fit(X, y, epochs=epochs, batch_size=batch_size, verbose=0)
+    return history
+
+
+# Параметры для экспериментов
+learning_rates = [0.001]  # Используйте только одно значение
+neurons_list = [32]       # Используйте только одно значение
+layers_list = [2]         # Используйте только одно значение
+dropout_rates = [0.0]     # Используйте только одно значение
+batch_norm_options = [False]  # Используйте только одно значение
+
+
+results = {}
+
+for lr in learning_rates:
+    for neurons in neurons_list:
+        for layers in layers_list:
+            for dropout in dropout_rates:
+                for batch_norm in batch_norm_options:
+                    model = create_model(learning_rate=lr, neurons=neurons, layers=layers, dropout_rate=dropout, use_batch_norm=batch_norm)
+                    history = train_model(model, X, y, epochs=100)
+                    results[(lr, neurons, layers, dropout, batch_norm)] = history.history['accuracy']
+
+
+for key, accuracy in results.items():
+    plt.plot(accuracy, label=str(key))
+
+plt.title('Model Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.show()
+```
+
+задача 2
+```
+import numpy as np
+import matplotlib.pyplot as plt
+from tensorflow import keras
+from tensorflow.keras import layers
+
+# Загрузка набора данных MNIST
+(X_train, y_train), (X_test, y_test) = keras.datasets.mnist.load_data()
+X_train = X_train.astype('float32') / 255.0
+X_test = X_test.astype('float32') / 255.0
+
+# Преобразование данных
+X_train = X_train.reshape((X_train.shape[0], 28 * 28))
+X_test = X_test.reshape((X_test.shape[0], 28 * 28))
+
+def create_model_with_dropout():
+    model = keras.Sequential()
+    model.add(layers.Dense(128, activation='relu', input_shape=(28 * 28,)))
+    model.add(layers.Dropout(0.5))  # Добавляем слой Dropout
+    model.add(layers.Dense(64, activation='relu'))
+    model.add(layers.Dense(10, activation='softmax'))
+
+    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    return model
+
+# Создание и обучение модели
+model_with_dropout = create_model_with_dropout()
+history_with_dropout = model_with_dropout.fit(X_train, y_train, epochs=10, validation_split=0.2, batch_size=32)
+
+# Оценка модели
+test_loss, test_accuracy = model_with_dropout.evaluate(X_test, y_test)
+print(f"Test accuracy with Dropout: {test_accuracy:.4f}")
+
+# Визуализация истории обучения
+plt.plot(history_with_dropout.history['accuracy'], label='Train Accuracy')
+plt.plot(history_with_dropout.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Model Accuracy with Dropout')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.show()
+
+def create_model_with_additional_layer():
+    model = keras.Sequential()
+    model.add(layers.Dense(128, activation='relu', input_shape=(28 * 28,)))
+    model.add(layers.Dropout(0.5))
+    model.add(layers.Dense(64, activation='relu'))
+    model.add(layers.Dense(32, activation='relu'))  # Новый скрытый слой
+    model.add(layers.Dense(10, activation='softmax'))
+
+    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    return model
+
+# Создание и обучение модели с дополнительным слоем
+model_with_additional_layer = create_model_with_additional_layer()
+history_with_additional_layer = model_with_additional_layer.fit(X_train, y_train, epochs=10, validation_split=0.2, batch_size=32)
+
+# Оценка модели
+test_loss, test_accuracy = model_with_additional_layer.evaluate(X_test, y_test)
+print(f"Test accuracy with additional layer: {test_accuracy:.4f}")
+
+# Визуализация истории обучения
+plt.plot(history_with_additional_layer.history['accuracy'], label='Train Accuracy')
+plt.plot(history_with_additional_layer.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Model Accuracy with Additional Layer')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.show()
+
+```
+задача 3
+```
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from tensorflow import keras
+from tensorflow.keras import layers
+
+# Загрузка набора данных Iris
+iris = load_iris()
+X = iris.data
+y = iris.target
+
+# Разделение данных на обучающую и тестовую выборки
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Стандартизация данных
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+def create_model():
+    model = keras.Sequential()
+    model.add(layers.Dense(10, activation='relu', input_shape=(X_train.shape[1],)))
+    model.add(layers.Dense(10, activation='relu'))
+    model.add(layers.Dense(3, activation='softmax'))  # 3 класса для Iris
+    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    return model
+
+# Создание и обучение модели
+model = create_model()
+history = model.fit(X_train, y_train, epochs=100, validation_split=0.2, batch_size=5)
+
+# Оценка модели
+test_loss, test_accuracy = model.evaluate(X_test, y_test)
+print(f"Test accuracy: {test_accuracy:.4f}")
+
+# Визуализация истории обучения
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Model Accuracy')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.show()
+
+def create_model_improved():
+    model = keras.Sequential()
+    model.add(layers.Dense(32, activation='relu', input_shape=(X_train.shape[1],)))
+    model.add(layers.Dense(32, activation='relu'))
+    model.add(layers.Dense(16, activation='relu'))  # Новый скрытый слой
+    model.add(layers.Dense(3, activation='softmax'))
+    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    return model
+
+def create_model_with_dropout():
+    model = keras.Sequential()
+    model.add(layers.Dense(32, activation='relu', input_shape=(X_train.shape[1],)))
+    model.add(layers.Dropout(0.5))  # Слой Dropout
+    model.add(layers.Dense(32, activation='relu'))
+    model.add(layers.Dense(3, activation='softmax'))
+    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    return model
+
+# Создание и обучение улучшенной модели
+improved_model = create_model_with_dropout()
+history_improved = improved_model.fit(X_train, y_train, epochs=100, validation_split=0.2, batch_size=5)
+
+# Оценка улучшенной модели
+test_loss, test_accuracy = improved_model.evaluate(X_test, y_test)
+print(f"Test accuracy of improved model: {test_accuracy:.4f}")
+
+# Визуализация истории обучения улучшенной модели
+plt.plot(history_improved.history['accuracy'], label='Train Accuracy')
+plt.plot(history_improved.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Improved Model Accuracy')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.show()
+```
