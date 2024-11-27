@@ -1,0 +1,233 @@
+!!!Использование датасетов о рейтинге фильмов MovieLens Latest Datasets.
+
+import pandas as pd
+import numpy as np
+
+# модуль sparse библиотеки scipy понадобится для работы с разреженными матрицами 
+from scipy.sparse import csr_matrix
+
+from sklearn.neighbors import NearestNeighbors
+
+movies = pd.read_csv('movies.csv')
+ratings = pd.read_csv('ratings.csv')
+
+
+
+movies.head(5) 
+
+
+
+ratings.head(5)
+
+
+
+# Удаление столбцов, которые не будут участвовать в анализе
+movies.drop(['genres'], axis = 1, inplace = True)
+ratings.drop(['timestamp'], axis = 1, inplace = True)
+
+
+
+!!!Создание матрицы предпочтений
+
+# По горизонтали будут фильмы, по вертикали - пользователи, значения - оценки
+user_item_matrix = ratings.pivot(index = 'movieId', columns = 'userId', values = 'rating')
+user_item_matrix.head()
+
+
+
+#замена пропущенных значений 
+user_item_matrix.fillna(0, inplace = True)
+print(user_item_matrix.shape)
+user_item_matrix.head()
+
+
+
+!!!Чистка матрицы
+
+
+# Вначале сгруппируем (объединим) пользователей, возьмем только столбец rating 
+# и посчитаем, сколько было оценок у каждого пользователя
+users_votes = ratings.groupby('userId')['rating'].agg('count')
+ 
+# Сделаем то же самое, только для фильма
+movies_votes = ratings.groupby('movieId')['rating'].agg('count')
+ 
+# Теперь создадим фильтр (mask)
+user_mask = users_votes[users_votes > 50].index
+movie_mask = movies_votes[movies_votes > 10].index
+ 
+# Применим фильтры и отберем фильмы с достаточным количеством оценок
+user_item_matrix = user_item_matrix.loc[movie_mask,:]
+ 
+# Отберём также активных пользователей
+user_item_matrix = user_item_matrix.loc[:,user_mask]
+
+print(user_item_matrix.shape)
+user_item_matrix.head()
+
+!!!Преобразование разреженной матрицы
+
+# атрибут values передаст функции csr_matrix только значения датафрейма
+csr_data = csr_matrix(user_item_matrix.values)
+print(csr_data)
+
+
+
+
+user_item_matrix = user_item_matrix.rename_axis(None, axis = 1).reset_index()
+user_item_matrix.head()
+
+
+Создание модели машинного обучения
+
+
+
+
+# Создадим объект класса NearestNeighbors
+# metric = ‘cosine’: косинусное сходство; algorithm = ‘brute’: полный перебор; 
+# n_neighbors = 20: количество соседей; n_jobs = -1: вычисления на всех свободных ядрах процессора
+knn = NearestNeighbors(metric = 'cosine', algorithm = 'brute', n_neighbors = 20, n_jobs = -1)
+ 
+# обучим модель
+knn.fit(csr_data)
+
+
+Получение рекомендаций
+
+
+
+# Давать будем 10 рекоммендаций. Будет использоваться и для определения числа ближайших соседей.
+recommendations = 10
+search_word = 'Matrix'
+
+
+
+movie_search = movies[movies['title'].str.contains(search_word)]
+movie_search
+
+
+
+
+movie_id = movie_search.iloc[0]['movieId']
+ 
+# далее по индексу фильма в датасете movies найдем соответствующий индекс
+# в матрице предпочтений
+movie_id = user_item_matrix[user_item_matrix['movieId'] == movie_id].index[0]
+movie_id
+
+
+
+
+
+# Получим оценки этого фильма из сжатой матрицы
+print(csr_data[movie_id])
+
+
+
+
+
+# Поиск индексов ближайших соседей 
+# С помощью нашего классификатора найдём массив индексов фильмов (indices) и массив расстояний (distances) до них
+distances, indices = knn.kneighbors(csr_data[movie_id], n_neighbors = recommendations + 1)
+
+
+
+
+
+
+
+# Уберем лишние измерения через squeeze() и преобразуем массивы в списки с помощью tolist()
+indices_list = indices.squeeze().tolist()
+distances_list = distances.squeeze().tolist()
+
+# Упакуем индексы и расстояния в набор кортежей (tuple), хранящих пары (индекс, расстояние)
+indices_distances = list(zip(indices_list, distances_list))
+ 
+
+print(type(indices_distances[0]))
+ 
+# и посмотрим на первые три пары/кортежа
+print(indices_distances[:3])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Отсортируем кортежи по расстоянию
+indices_distances_sorted = sorted(indices_distances, key = lambda x: x[1], reverse = False)
+
+# Надо убрать первый элемент с индексом 901 (потому что это и есть исходный фильм "Матрица")
+indices_distances_sorted = indices_distances_sorted[1:]
+indices_distances_sorted
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Сопоставление индексам названия фильмов 
+recom_list = []
+
+# Теперь в цикле будем поочередно проходить по кортежам
+for ind_dist in indices_distances_sorted:
+
+    # искать movieId в матрице предпочтений
+    matrix_movie_id = user_item_matrix.iloc[ind_dist[0]]['movieId']
+
+    # выяснять индекс этого фильма в датафрейме movies
+    id = movies[movies['movieId'] == matrix_movie_id].index
+
+    # брать название фильма и расстояние до него
+    title = movies.iloc[id]['title'].values[0]
+    dist = ind_dist[1]
+
+    # помещать каждую пару в питоновский словарь
+    # который, в свою очередь, станет элементом списка recom_list
+    recom_list.append({'Title' : title, 'Distance' : dist})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+recom_list[:5]
+
+
+
+
+
+
+
+
+
+
+
+# Для удобства выполним преобразование наших рекомендаций в датафрейм
+recom_df = pd.DataFrame(recom_list, index = range(1, recommendations + 1))
+recom_df
