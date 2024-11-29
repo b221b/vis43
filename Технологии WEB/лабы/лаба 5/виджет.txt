@@ -1,0 +1,84 @@
+Undefined variable $upcomingEvents
+1. in D:\OSPanel\domains\yii2\widgets\views\upcoming-events.php
+
+UpcomingEventsWidget.php
+```
+<?php
+
+namespace app\widgets;
+
+use yii\base\Widget;
+use app\models\Sorevnovaniya;
+use yii\helpers\Html;
+
+class UpcomingEventsWidget extends Widget
+{
+    public $limit = 5; // Количество соревнований для отображения
+
+    public function init()
+    {
+        parent::init();
+        // Здесь можно выполнить дополнительную инициализацию, если необходимо
+    }
+
+    public function run()
+    {
+        // Получаем предстоящие соревнования из базы данных
+        $upcomingEvents = Sorevnovaniya::find()
+            ->where(['>', 'data_provedeniya', date('Y-m-d')]) // Получаем события с будущей датой
+            ->orderBy(['data_provedeniya' => SORT_ASC])
+            ->limit($this->limit)
+            ->all();
+
+        // Рендерим представление виджета
+        return $this->render('upcoming-events', [
+            'events' => $upcomingEvents,
+        ]);
+    }
+}
+```
+
+upcoming-events.php
+```
+<?php
+
+use yii\helpers\Html;
+use yii\grid\GridView;
+
+/* @var $this yii\web\View */
+/* @var $dataProvider yii\data\ActiveDataProvider */
+
+$this->title = 'Предстоящие соревнования';
+$this->params['breadcrumbs'][] = $this->title;
+?>
+
+<div class="sorevnovaniya-index">
+    <h1><?= Html::encode($this->title) ?></h1>
+
+    <?= GridView::widget([
+        'dataProvider' => $dataProvider,
+        'filterModel' => null, // Если вам не нужно фильтровать, оставьте null
+        'columns' => [
+            // Здесь вы можете указать, какие столбцы отображать
+            [
+                'attribute' => 'name', // Имя соревнования
+                'label' => 'Название',
+            ],
+            [
+                'attribute' => 'data_provedeniya', // Дата проведения
+                'label' => 'Дата',
+                'format' => ['date', 'php:Y-m-d'], // Форматирование даты
+            ],
+            // Вы можете добавить дополнительные столбцы по мере необходимости
+            [
+                'attribute' => 'location', // Место проведения
+                'label' => 'Место',
+            ],
+            [
+                'class' => 'yii\grid\ActionColumn', // Столбец действий (редактирование, удаление и т.д.)
+                'header' => 'Действия',
+            ],
+        ],
+    ]); ?>
+</div>
+```

@@ -1,0 +1,33 @@
+
+
+
+
+            'pagination' => [
+                'pageSize' => 7, 
+            ],
+
+
+
+
+
+use yii\widgets\LinkPager;
+
+
+
+
+
+echo LinkPager::widget([
+    'pagination' => $dataProvider->pagination,
+    'options' => [
+        'class' => 'pagination justify-content-center', // Центрируем пагинацию
+    ],
+    'linkOptions' => [
+        'class' => 'page-link', // Класс для ссылок
+    ],
+    'activePageCssClass' => 'active', // Класс для активной страницы
+    'disabledPageCssClass' => 'disabled', // Класс для неактивной страницы
+    'prevPageLabel' => '&laquo;', // Текст для кнопки "Предыдущая"
+    'nextPageLabel' => '&raquo;', // Текст для кнопки "Следующая"
+    'firstPageLabel' => 'Первая', // Текст для кнопки "Первая"
+    'lastPageLabel' => 'Последняя', // Текст для кнопки "Последняя"
+]);
