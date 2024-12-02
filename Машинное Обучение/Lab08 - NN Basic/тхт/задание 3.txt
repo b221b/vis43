@@ -1,0 +1,94 @@
+Задание 3
+Создайте модель нейронной сети для решения задачи классификации из Лабораторной работы №5, в соответствии с вариантом задания
+Обучите модель. В завсимости от результатов, видоизмените модель, чтобы попытаться добиться большей точности
+
+у меня есть примерчный код выполнения задания, мне нужно что бы ты переписал код под датасет exam_регр.csv со следующими полями:
+```
+Id	age	years_of_experience	lesson_price	qualification	physics	chemistry	biology	english	geography	history	mean_exam_points
+```
+delimiter - ;
+
+вот код который нужно переделать под новый датасет:
+```
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from tensorflow import keras
+from tensorflow.keras import layers
+
+# Загрузка набора данных Iris
+iris = load_iris()
+X = iris.data
+y = iris.target
+
+# Разделение данных на обучающую и тестовую выборки
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Стандартизация данных
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+def create_model():
+    model = keras.Sequential()
+    model.add(layers.Dense(10, activation='relu', input_shape=(X_train.shape[1],)))
+    model.add(layers.Dense(10, activation='relu'))
+    model.add(layers.Dense(3, activation='softmax'))  # 3 класса для Iris
+    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    return model
+
+# Создание и обучение модели
+model = create_model()
+history = model.fit(X_train, y_train, epochs=100, validation_split=0.2, batch_size=5)
+
+# Оценка модели
+test_loss, test_accuracy = model.evaluate(X_test, y_test)
+print(f"Test accuracy: {test_accuracy:.4f}")
+
+# Визуализация истории обучения
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Model Accuracy')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.show()
+
+def create_model_improved():
+    model = keras.Sequential()
+    model.add(layers.Dense(32, activation='relu', input_shape=(X_train.shape[1],)))
+    model.add(layers.Dense(32, activation='relu'))
+    model.add(layers.Dense(16, activation='relu'))  # Новый скрытый слой
+    model.add(layers.Dense(3, activation='softmax'))
+    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    return model
+
+def create_model_with_dropout():
+    model = keras.Sequential()
+    model.add(layers.Dense(32, activation='relu', input_shape=(X_train.shape[1],)))
+    model.add(layers.Dropout(0.5))  # Слой Dropout
+    model.add(layers.Dense(32, activation='relu'))
+    model.add(layers.Dense(3, activation='softmax'))
+    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    return model
+
+# Создание и обучение улучшенной модели
+improved_model = create_model_with_dropout()
+history_improved = improved_model.fit(X_train, y_train, epochs=100, validation_split=0.2, batch_size=5)
+
+# Оценка улучшенной модели
+test_loss, test_accuracy = improved_model.evaluate(X_test, y_test)
+print(f"Тестовая точность улучшенной модели: {test_accuracy:.4f}")
+
+# Визуализация истории обучения улучшенной модели
+plt.plot(history_improved.history['accuracy'], label='Train Accuracy')
+plt.plot(history_improved.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Улучшенная точность модели')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.show()
+```
