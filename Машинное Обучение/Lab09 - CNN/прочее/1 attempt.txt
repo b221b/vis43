@@ -1,0 +1,180 @@
+Классификация изображений
+
+простой пример
+```
+# Импорты нужных нам библиотек и фреймворков
+import tensorflow as tf
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.metrics import classification_report
+import zipfile
+import random
+from shutil import copyfile
+
+print(tf.__version__)
+
+fashion_mnist = tf.keras.datasets.fashion_mnist
+
+(train_images, train_labels), (test_images, test_labels) = fashion_mnist.load_data()
+class_names = ['Футболка/топ', 'Брюки', 'Пуловер', 'Платье', 'Пальто',
+               'Сандалии', 'Рубаха', 'Кроссовки', 'Сумка', 'Полуботинки']
+
+print(train_images.shape)
+print(len(train_labels))
+print(train_labels)
+print(test_images.shape)
+print(len(test_labels))
+
+plt.figure()
+plt.imshow(train_images[0])
+plt.colorbar()
+plt.grid(False)
+plt.show()
+
+# Посмотрели - теперь приведём яркости к диапазону 0..1
+train_images = train_images / 255.0
+test_images = test_images / 255.0
+
+plt.figure(figsize=(10,10))
+for i in range(25):
+    plt.subplot(5,5,i+1)
+    plt.xticks([])
+    plt.yticks([])
+    plt.grid(False)
+    plt.imshow(train_images[i], cmap=plt.cm.binary)
+    plt.xlabel(class_names[train_labels[i]])
+plt.show()
+
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Conv2D(32, (3, 3), activation='relu', input_shape=(28, 28, 1)),
+    tf.keras.layers.MaxPooling2D(2, 2),
+    tf.keras.layers.Dropout(0.25),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+model.compile(loss=tf.keras.losses.sparse_categorical_crossentropy, 
+              optimizer=tf.keras.optimizers.Adam(), metrics=['accuracy'])
+model.summary()
+tf.keras.utils.plot_model(model, to_file='model.png', show_shapes=True, show_layer_names=False)
+
+train_images = np.expand_dims(train_images, -1)
+test_images = np.expand_dims(test_images, -1)
+history = model.fit(train_images, train_labels, batch_size=256, epochs=10,validation_split=0.2,verbose=1)
+
+def learning_curves(history, epochs):
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 8))
+    ax1.plot(history.history['loss'], color='b', label="Training loss")
+    ax1.plot(history.history['val_loss'], color='r', label="validation loss")
+    ax1.set_xticks(np.arange(1, epochs, 1))
+    ax1.set_yticks(np.arange(0, 1, 0.1))
+    legend1 = ax1.legend(loc='best', shadow=True)
+
+    ax2.plot(history.history['accuracy'], color='b', label="Training accuracy")
+    ax2.plot(history.history['val_accuracy'], color='r',label="Validation accuracy")
+    ax2.set_xticks(np.arange(1, epochs, 1))
+
+    legend2 = ax2.legend(loc='best', shadow=True)
+    plt.tight_layout()
+    plt.show()
+
+learning_curves(history, 10)
+
+predicted_classes = model.predict(test_images)
+predicted_classes = np.argmax(predicted_classes, axis=1)
+print(classification_report(test_labels, predicted_classes, target_names=class_names))
+
+incorrect = np.nonzero(predicted_classes!=test_labels)[0]
+plt.figure(figsize=(15, 8))
+for j, incorrect in enumerate(incorrect[0:8]):
+    plt.subplot(2, 4, j+1)
+    plt.xticks([])
+    plt.yticks([])
+    plt.imshow(test_images[incorrect].reshape(28, 28), cmap="Blues")
+    plt.title("Predicted: {}".format(class_names[predicted_classes[incorrect]]))
+    plt.xlabel("Actual: {}".format(class_names[test_labels[incorrect]]))
+```
+
+Подготовка своего набора данных.
+```
+import pathlib
+data_dir = pathlib.Path("PetImages")
+
+import os
+
+num_skipped = 0
+for folder_name in ("Cat", "Dog"):
+    folder_path = os.path.join(data_dir, folder_name)
+    for fname in os.listdir(folder_path):
+        fpath = os.path.join(folder_path, fname)
+        try:
+            fobj = open(fpath, "rb")
+            is_jfif = tf.compat.as_bytes("JFIF") in fobj.peek(10)
+        finally:
+            fobj.close()
+
+        if not is_jfif:
+            num_skipped += 1
+            # Удаляем испорченные и не поддерживаемые изображения
+            os.remove(fpath)
+
+print("Deleted %d images" % num_skipped)
+
+image_size = (150, 150)
+batch_size = 16
+
+train_ds = tf.keras.utils.image_dataset_from_directory(data_dir, validation_split=0.2,
+    subset="training",
+    seed=42,
+    image_size=image_size,
+    batch_size=batch_size,
+)
+
+val_ds = tf.keras.utils.image_dataset_from_directory(data_dir, validation_split=0.2,
+    subset="validation",
+    seed=42,
+    image_size=image_size,
+    batch_size=batch_size,
+)
+
+train_ds.take(1)
+
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(10, 10))
+for images, labels in train_ds.take(1):
+    for i in range(9):
+        ax = plt.subplot(3, 3, i + 1)
+        plt.imshow(images[i].numpy().astype("uint8"))
+        plt.title(int(labels[i]))
+        plt.axis("off")
+```
+
+Классифицирующая модель.
+```
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Rescaling(1.0 / 255, input_shape=(150, 150, 3)),
+    tf.keras.layers.Conv2D(16, (3, 3), activation='relu'),
+    tf.keras.layers.MaxPooling2D(2, 2),
+    tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
+    tf.keras.layers.MaxPooling2D(2, 2),
+    tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
+    tf.keras.layers.MaxPooling2D(2, 2),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(512, activation='relu'),
+    tf.keras.layers.Dense(1, activation='sigmoid')
+])
+
+model.compile(loss=tf.keras.losses.binary_crossentropy, 
+              optimizer=tf.keras.optimizers.Adam(1e-3), metrics=['accuracy'])
+model.summary()
+
+history = model.fit(train_ds, validation_data=val_ds, epochs=10, verbose=1)
+
+learning_curves(history, 10)
+```
+
+задание:
+Меняя модель и настройки метода оптимизации, добейтесь точности 97% и выше на наборе данных "Dogs vs Cats".
+Решите задачу классификации для набора данных по варианту. При необходимости обоснуйте и примените обогащение данных.

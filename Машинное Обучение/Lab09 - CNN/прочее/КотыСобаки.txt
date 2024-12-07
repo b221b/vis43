@@ -1,0 +1,191 @@
+Меняя модель и настройки метода оптимизации, добейтесь точности 97% и выше
+
+сделай все возможное что бы этого добиться
+
+потом напиши какой код мне нужно заменить и напиши код на который надо заменить
+```
+import pathlib
+import os
+import random
+import shutil
+import tensorflow as tf
+
+# Укажите директорию с изображениями
+data_dir = pathlib.Path("PetImages")
+
+# Создайте новую директорию для уменьшенного набора данных
+reduced_data_dir = pathlib.Path("ReducedPetImages")
+os.makedirs(reduced_data_dir, exist_ok=True)
+
+# Перебираем папки с изображениями
+for folder_name in ("Cat", "Dog"):
+    folder_path = os.path.join(data_dir, folder_name)
+    reduced_folder_path = os.path.join(reduced_data_dir, folder_name)
+    os.makedirs(reduced_folder_path, exist_ok=True)
+
+    # Получите список всех изображений в папке
+    all_images = os.listdir(folder_path)
+
+    # Случайным образом выберите 25% изображений
+    reduced_images = random.sample(all_images, len(all_images) // 64) # // 12, 8, 4
+
+    for fname in reduced_images:
+        fpath = os.path.join(folder_path, fname)
+        shutil.copy(fpath, reduced_folder_path)
+
+print("Создан уменьшенный набор данных с 25% оригинальных изображений.")
+
+# Теперь используйте reduced_data_dir для дальнейшей обработки
+
+# Удаляем испорченные и не поддерживаемые изображения
+num_skipped = 0
+for folder_name in ("Cat", "Dog"):
+    folder_path = os.path.join(reduced_data_dir, folder_name)
+    for fname in os.listdir(folder_path):
+        fpath = os.path.join(folder_path, fname)
+        try:
+            fobj = open(fpath, "rb")
+            is_jfif = tf.compat.as_bytes("JFIF") in fobj.peek(10)
+        finally:
+            fobj.close()
+
+        if not is_jfif:
+            num_skipped += 1
+            # Удаляем испорченные и не поддерживаемые изображения
+            os.remove(fpath)
+
+print("Удалено %d изображений" % num_skipped)
+
+import matplotlib.pyplot as plt
+
+image_size = (150, 150)
+batch_size = 16
+
+train_ds = tf.keras.utils.image_dataset_from_directory(reduced_data_dir, validation_split=0.2,
+    subset="training",
+    seed=42,
+    image_size=image_size,
+    batch_size=batch_size,
+)
+
+val_ds = tf.keras.utils.image_dataset_from_directory(reduced_data_dir, validation_split=0.2,
+    subset="validation",
+    seed=42,
+    image_size=image_size,
+    batch_size=batch_size,
+)
+
+# Визуализация данных
+plt.figure(figsize=(10, 10))
+for images, labels in train_ds.take(1):
+    for i in range(9):
+        ax = plt.subplot(3, 3, i + 1)
+        plt.imshow(images[i].numpy().astype("uint8"))
+        plt.title(int(labels[i]))
+        plt.axis("off")
+
+# Создание и компиляция модели
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Rescaling(1.0 / 255, input_shape=(150, 150, 3)),
+    tf.keras.layers.Conv2D(16, (3, 3), activation='relu'),
+    tf.keras.layers.MaxPooling2D(2, 2),
+    tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
+    tf.keras.layers.MaxPooling2D(2, 2),
+    tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
+    tf.keras.layers.MaxPooling2D(2, 2),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(512, activation='relu'),
+    tf.keras.layers.Dense(1, activation='sigmoid')
+])
+
+model.compile(loss=tf.keras.losses.binary_crossentropy,
+              optimizer=tf.keras.optimizers.Adam(1e-3), metrics=['accuracy'])
+model.summary()
+
+# Обучение модели
+history = model.fit(train_ds, validation_data=val_ds, epochs=10, verbose=1)
+
+# Оценка модели
+loss, accuracy = model.evaluate(val_ds)
+print(f'Validation accuracy: {accuracy * 100:.2f}%')
+
+max_val_accuracy = max(history.history['val_accuracy'])
+print(f'Validation accuracy: {max_val_accuracy * 100:.2f}%')
+
+# Функция для отображения кривых обучения
+def learning_curves(history, epochs):
+    plt.figure(figsize=(12, 4))
+
+    # Точность
+    plt.subplot(1, 2, 1)
+    plt.plot(range(1, epochs + 1), history.history['accuracy'], label='Тренировочная точность')
+    plt.plot(range(1, epochs + 1), history.history['val_accuracy'], label='Валидационная точность')
+    plt.title('Точность обучения')
+    plt.xlabel('Эпохи')
+    plt.ylabel('Точность')
+    plt.legend()
+
+    # Потери
+    plt.subplot(1, 2, 2)
+    plt.plot(range(1, epochs + 1), history.history['loss'], label='Потери на тренировочном наборе')
+    plt.plot(range(1, epochs + 1), history.history['val_loss'], label='Потери на валидационном наборе')
+    plt.title('Потери обучения')
+    plt.xlabel('Эпохи')
+    plt.ylabel('Потери')
+    plt.legend()
+
+    plt.show()
+
+# Отображение кривых обучения
+learning_curves(history, 10)
+
+from tensorflow.keras import layers, models
+from tensorflow.keras.preprocessing import image_dataset_from_directory
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+
+data_augmentation = tf.keras.Sequential(
+    [
+        tf.keras.layers.RandomFlip("horizontal"),
+        tf.keras.layers.RandomRotation(0.1),
+    ]
+)
+
+plt.figure(figsize=(10, 10))
+for images, _ in train_ds.take(1):
+    for i in range(9):
+        augmented_images = data_augmentation(images)
+        ax = plt.subplot(3, 3, i + 1)
+        plt.imshow(augmented_images[0].numpy().astype("uint8"))
+        plt.axis("off")
+
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Input(shape=(150, 150, 3)),
+    data_augmentation,
+    tf.keras.layers.Rescaling(1.0 / 255),
+    tf.keras.layers.Conv2D(16, (3, 3), activation='relu'),
+    tf.keras.layers.MaxPooling2D(2, 2),
+    tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
+    tf.keras.layers.MaxPooling2D(2, 2),
+    tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
+    tf.keras.layers.MaxPooling2D(2, 2),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(512, activation='relu'),
+    tf.keras.layers.Dense(1, activation='sigmoid')
+])
+
+model.compile(loss=tf.keras.losses.binary_crossentropy,
+              optimizer=tf.keras.optimizers.Adam(1e-3), metrics=['accuracy'])
+model.summary()
+
+history = model.fit(train_ds, validation_data=val_ds, epochs=10, verbose=1)
+
+# Оценка модели
+loss, accuracy = model.evaluate(val_ds)
+print(f'Final Validation accuracy: {accuracy * 100:.2f}%')
+
+# Получение максимального значения валидационной точности
+max_val_accuracy = max(history.history['val_accuracy'])
+print(f'Maximum Validation accuracy during training: {max_val_accuracy * 100:.2f}%')
+
+learning_curves(history, 10)
+```

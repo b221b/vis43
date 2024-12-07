@@ -1,0 +1,172 @@
+мне необходимо добиться точность 97% и выше меняя модель и настройки метода оптимизации
+
+```
+import os  # Добавьте этот импорт
+import tensorflow as tf
+import matplotlib.pyplot as plt
+import pathlib
+
+data_dir = pathlib.Path("PetImages")
+
+# Удаляем испорченные изображения
+num_skipped = 0
+for folder_name in ("cat", "dog"):
+    folder_path = os.path.join(data_dir, folder_name)
+    for fname in os.listdir(folder_path):
+        fpath = os.path.join(folder_path, fname)
+        try:
+            fobj = open(fpath, "rb")
+            is_jfif = tf.compat.as_bytes("JFIF") in fobj.peek(10)
+        finally:
+            fobj.close()
+
+        if not is_jfif:
+            num_skipped += 1
+            os.remove(fpath)
+
+print("Deleted %d images" % num_skipped)
+
+image_size = (150, 150)
+batch_size = 32
+
+train_ds = tf.keras.utils.image_dataset_from_directory(
+    data_dir,
+    validation_split=0.2,
+    subset="training",
+    seed=42,
+    image_size=image_size,
+    batch_size=batch_size,
+)
+
+val_ds = tf.keras.utils.image_dataset_from_directory(
+    data_dir,
+    validation_split=0.2,
+    subset="validation",
+    seed=42,
+    image_size=image_size,
+    batch_size=batch_size,
+)
+
+# Применяем аугментацию данных
+data_augmentation = tf.keras.Sequential([
+    tf.keras.layers.RandomFlip("horizontal_and_vertical"),
+    tf.keras.layers.RandomRotation(0.2),
+    tf.keras.layers.RandomZoom(0.2),
+])
+
+# Визуализация аугментации
+plt.figure(figsize=(10, 10))
+for images, labels in train_ds.take(1):
+    for i in range(9):
+        ax = plt.subplot(3, 3, i + 1)
+        augmented_image = data_augmentation(images[i:i+1])
+        plt.imshow(augmented_image[0].numpy().astype("uint8"))
+        plt.axis("off")
+
+# Загрузка предобученной модели
+base_model = tf.keras.applications.MobileNetV2(input_shape=(150, 150, 3), include_top=False, weights='imagenet')
+base_model.trainable = False  # Замораживаем базовую модель
+
+# Создание новой модели
+model = tf.keras.models.Sequential([
+    data_augmentation,
+    tf.keras.layers.Rescaling(1.0 / 255),
+    base_model,
+    tf.keras.layers.GlobalAveragePooling2D(),
+    tf.keras.layers.Dense(512, activation='relu'),
+    tf.keras.layers.Dense(1, activation='sigmoid')  # Для бинарной классификации
+])
+
+model.compile(loss=tf.keras.losses.binary_crossentropy,
+              optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),  # Уменьшение скорости обучения
+              metrics=['accuracy'])
+model.summary()
+
+# Обратные вызовы для сохранения модели и ранней остановки
+early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', patience=5, restore_best_weights=True)
+model_checkpoint = tf.keras.callbacks.ModelCheckpoint('best_model.keras', save_best_only=True, monitor='val_accuracy')
+
+# Обучение модели
+history = model.fit(train_ds, validation_data=val_ds, epochs=50, verbose=1, callbacks=[early_stopping, model_checkpoint])
+
+# Оценка модели
+loss, accuracy = model.evaluate(val_ds)
+print(f'Validation accuracy: {accuracy * 100:.2f}%')
+
+# Визуализация кривых обучения
+def plot_learning_curves(history):
+    plt.figure(figsize=(10, 5))
+    
+    # Точность
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history['accuracy'], label='Training Accuracy')
+    plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+    plt.title('Accuracy')
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    
+    # Потеря
+    plt.subplot(1, 2, 2)
+    plt.plot(history.history['loss'], label='Training Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.title('Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    
+    plt.tight_layout()
+    plt.show()
+
+# Визуализация кривых обучения
+plot_learning_curves(history)
+```
+
+результат:
+Deleted 36 images
+Found 156 files belonging to 2 classes.
+Using 125 files for training.
+Found 156 files belonging to 2 classes.
+Using 31 files for validation.
+<ipython-input-55-fcfa01f865f5>:64: UserWarning: `input_shape` is undefined or non-square, or `rows` is not in [96, 128, 160, 192, 224]. Weights for input shape (224, 224) will be loaded as the default.
+  base_model = tf.keras.applications.MobileNetV2(input_shape=(150, 150, 3), include_top=False, weights='imagenet')
+Model: "sequential_9"
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)                         ┃ Output Shape                ┃         Param # ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━┩
+│ sequential_8 (Sequential)            │ (1, 150, 150, 3)            │               0 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ rescaling_3 (Rescaling)              │ (1, 150, 150, 3)            │               0 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ mobilenetv2_1.00_224 (Functional)    │ (1, 5, 5, 1280)             │       2,257,984 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ global_average_pooling2d_2           │ (1, 1280)                   │               0 │
+│ (GlobalAveragePooling2D)             │                             │                 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_10 (Dense)                     │ (1, 512)                    │         655,872 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense_11 (Dense)                     │ (1, 1)                      │             513 │
+└──────────────────────────────────────┴─────────────────────────────┴─────────────────┘
+ Total params: 2,914,369 (11.12 MB)
+ Trainable params: 656,385 (2.50 MB)
+ Non-trainable params: 2,257,984 (8.61 MB)
+Epoch 1/50
+4/4 ━━━━━━━━━━━━━━━━━━━━ 16s 2s/step - accuracy: 0.6093 - loss: 0.6877 - val_accuracy: 0.7419 - val_loss: 0.5847
+Epoch 2/50
+4/4 ━━━━━━━━━━━━━━━━━━━━ 10s 3s/step - accuracy: 0.8082 - loss: 0.4914 - val_accuracy: 0.7742 - val_loss: 0.5006
+Epoch 3/50
+4/4 ━━━━━━━━━━━━━━━━━━━━ 18s 2s/step - accuracy: 0.7803 - loss: 0.4480 - val_accuracy: 0.7742 - val_loss: 0.4472
+Epoch 4/50
+4/4 ━━━━━━━━━━━━━━━━━━━━ 10s 2s/step - accuracy: 0.8132 - loss: 0.4245 - val_accuracy: 0.8710 - val_loss: 0.4205
+Epoch 5/50
+4/4 ━━━━━━━━━━━━━━━━━━━━ 9s 2s/step - accuracy: 0.8906 - loss: 0.3128 - val_accuracy: 0.8710 - val_loss: 0.3971
+Epoch 6/50
+4/4 ━━━━━━━━━━━━━━━━━━━━ 9s 2s/step - accuracy: 0.8477 - loss: 0.3031 - val_accuracy: 0.8065 - val_loss: 0.3838
+Epoch 7/50
+4/4 ━━━━━━━━━━━━━━━━━━━━ 11s 2s/step - accuracy: 0.9113 - loss: 0.2783 - val_accuracy: 0.8387 - val_loss: 0.3811
+Epoch 8/50
+4/4 ━━━━━━━━━━━━━━━━━━━━ 11s 2s/step - accuracy: 0.8707 - loss: 0.2824 - val_accuracy: 0.8387 - val_loss: 0.3756
+Epoch 9/50
+4/4 ━━━━━━━━━━━━━━━━━━━━ 9s 2s/step - accuracy: 0.8770 - loss: 0.2974 - val_accuracy: 0.8065 - val_loss: 0.3787
+1/1 ━━━━━━━━━━━━━━━━━━━━ 2s 2s/step - accuracy: 0.8710 - loss: 0.4205
+Validation accuracy: 87.10%
