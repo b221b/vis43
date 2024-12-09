@@ -1,0 +1,144 @@
+```
+# Загружаем наборы данных
+image_size = (150, 150)
+batch_size = 16
+
+train_ds = tf.keras.utils.image_dataset_from_directory(reduced_data_dir, validation_split=0.2,
+    subset="training",
+    seed=42,
+    image_size=image_size,
+    batch_size=batch_size,
+)
+
+val_ds = tf.keras.utils.image_dataset_from_directory(reduced_data_dir, validation_split=0.2,
+    subset="validation",
+    seed=42,
+    image_size=image_size,
+    batch_size=batch_size,
+)
+
+# Создание модели
+model = models.Sequential([
+    layers.Input(shape=(150, 150, 3)),
+    layers.Rescaling(1.0 / 255),
+    layers.Conv2D(32, (3, 3), activation='relu'),
+    layers.MaxPooling2D(2, 2),
+    layers.Conv2D(64, (3, 3), activation='relu'),
+    layers.MaxPooling2D(2, 2),
+    layers.Conv2D(128, (3, 3), activation='relu'),
+    layers.MaxPooling2D(2, 2),
+    layers.Flatten(),
+    layers.Dense(512, activation='relu'),
+    layers.Dropout(0.5),  # Добавление слоя Dropout
+    layers.Dense(1, activation='sigmoid')
+])
+
+# Компиляция модели
+model.compile(loss=tf.keras.losses.binary_crossentropy,
+              optimizer=tf.keras.optimizers.Adam(3e-4),
+              metrics=['accuracy'])  # Изменение скорости обучения
+model.summary()
+
+# Настройка обратных вызовов
+callbacks = [
+    EarlyStopping(patience=5, restore_best_weights=True),
+    ModelCheckpoint('best_model.keras', save_best_only=True, monitor='val_accuracy')  # Изменено на .keras
+]
+
+# Обучение модели
+history = model.fit(train_ds, validation_data=val_ds, epochs=20, callbacks=callbacks, verbose=1)  # Увеличение количества эпох
+
+# Оценка модели
+loss, accuracy = model.evaluate(val_ds)
+print(f'Final Validation accuracy: {accuracy * 100:.2f}%')
+
+max_val_accuracy = max(history.history['val_accuracy'])
+print(f'Maximum Validation accuracy during training: {max_val_accuracy * 100:.2f}%')
+
+# Отображение кривых обучения
+def learning_curves(history):
+    epochs = len(history.history['accuracy'])  # Получаем фактическое количество эпох
+    plt.figure(figsize=(12, 4))
+
+    plt.subplot(1, 2, 1)
+    plt.plot(range(1, epochs + 1), history.history['accuracy'], label='Train Accuracy')
+    plt.plot(range(1, epochs + 1), history.history['val_accuracy'], label='Validation Accuracy')
+    plt.title('Learning Accuracy')
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy')
+    plt.legend()
+
+    plt.subplot(1, 2, 2)
+    plt.plot(range(1, epochs + 1), history.history['loss'], label='Train Loss')
+    plt.plot(range(1, epochs + 1), history.history['val_loss'], label='Validation Loss')
+    plt.title('Learning Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+
+    plt.show()
+
+learning_curves(history)
+```
+```
+import tensorflow as tf
+from tensorflow.keras import layers, models
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+
+# Определение параметров
+image_size = (150, 150)  # Приведите размер к 150, 150
+num_classes = 1  # Установите 1, так как это бинарная классификация
+
+# Аугментация данных
+data_augmentation = tf.keras.Sequential([
+    layers.RandomFlip("horizontal_and_vertical"),
+    layers.RandomRotation(0.2),
+    layers.RandomZoom(0.1),
+    layers.RandomTranslation(0.1, 0.1),
+])
+
+# Создание базовой модели
+base_model = tf.keras.applications.EfficientNetB0(input_shape=(150, 150, 3), include_top=False, weights='imagenet')  # Измените на 150
+base_model.trainable = True
+
+# Замораживание слоев (выбор слоев для заморозки)
+for layer in base_model.layers[:-30]:  # Замораживание последних 30 слоев
+    layer.trainable = False
+
+# Входные данные
+inputs = tf.keras.Input(shape=(150, 150, 3))  # Измените на 150, 150 и 3
+
+# Прокладываем аугментацию и базовую модель
+x = data_augmentation(inputs)
+x = base_model(x)
+x = layers.GlobalAveragePooling2D()(x)
+x = layers.Dense(128, activation='relu')(x)
+x = layers.Dropout(0.5)(x)  # Применение Dropout
+outputs = layers.Dense(num_classes, activation='sigmoid')(x)  # Выход для бинарной классификации
+
+# Создание модели
+model = tf.keras.Model(inputs, outputs)
+
+# Определение оптимизатора с небольшим learning rate
+optimizer = tf.keras.optimizers.Adam(learning_rate=1e-5)
+
+# Определение колбэков
+callbacks = [
+    EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True),
+    ModelCheckpoint('best_model.keras', save_best_only=True, monitor='val_accuracy'),
+    ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, min_lr=1e-6),
+    tf.keras.callbacks.TensorBoard(log_dir='./logs'),
+]
+
+# Компиляция модели
+model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])  # Изменение на binary_crossentropy
+
+# Обучение модели (не забудьте заменить train_ds и val_ds вашими данными)
+history = model.fit(train_ds, validation_data=val_ds, epochs=10, callbacks=callbacks, verbose=1)
+
+# Оценка модели
+max_val_accuracy = max(history.history['val_accuracy'])
+print(f'Maximum Validation accuracy: {max_val_accuracy * 100:.2f}%')
+learning_curves(history)
+```
+у этой модели все очень хорошо, и показатели и графики красивые, валидационная точность - 83%, мне нужно поднять это значение до 97% без потерь в хороших значениях, прикладываю график для наглядности.
