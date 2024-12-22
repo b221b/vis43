@@ -1,0 +1,26 @@
+Warehouse;Store;Transport Cost;Store Demand;Warehouse Stock
+Warehouse_1;Store_1;45414;30;150
+Warehouse_1;Store_2;5.0;40;150
+Warehouse_1;Store_3;45416;20;150
+Warehouse_1;Store_4;3.0;25;150
+Warehouse_1;Store_5;45413;10;150
+Warehouse_2;Store_1;3.0;30;100
+Warehouse_2;Store_2;4.0;40;100
+Warehouse_2;Store_3;2.0;20;100
+Warehouse_2;Store_4;45415;25;100
+Warehouse_2;Store_5;45416;10;100
+Warehouse_3;Store_1;1.0;30;80
+Warehouse_3;Store_2;45414;40;80
+Warehouse_3;Store_3;45415;20;80
+Warehouse_3;Store_4;45413;25;80
+Warehouse_3;Store_5;5.0;10;80
+Warehouse_4;Store_1;4.0;30;120
+Warehouse_4;Store_2;2.0;40;120
+Warehouse_4;Store_3;3.0;20;120
+Warehouse_4;Store_4;45416;25;120
+Warehouse_4;Store_5;45414;10;120
+Warehouse_5;Store_1;45415;30;90
+Warehouse_5;Store_2;45413;40;90
+Warehouse_5;Store_3;2.0;20;90
+Warehouse_5;Store_4;3.0;25;90
+Warehouse_5;Store_5;1.0;10;90
